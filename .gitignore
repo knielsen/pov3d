@@ -1,0 +1,5 @@
+*~
+*.o
+pov3d.bin
+pov3d.elf
+pov3d.hex
