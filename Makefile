@@ -22,7 +22,7 @@ STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
 vpath %.c $(STM_SRC)
 
 # My source file
-SRCS   = main.c led.c
+SRCS   = main.c led.c dbg.c
 
 # Contains initialisation code and must be compiled into
 # our project. This file is in the current directory and
@@ -105,6 +105,8 @@ $(PROJ_NAME).elf: $(SRCS)
 	$(CC) $(INCLUDE) $(DEFS) $(CFLAGS) $(LFLAGS) $^ -o $@ 
 	$(OBJCOPY) -O ihex $(PROJ_NAME).elf   $(PROJ_NAME).hex
 	$(OBJCOPY) -O binary $(PROJ_NAME).elf $(PROJ_NAME).bin
+$(PROJ_NAME).elf: pov3d.h
+
 
 clean:
 	rm -f *.o $(PROJ_NAME).elf $(PROJ_NAME).hex $(PROJ_NAME).bin
