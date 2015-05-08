@@ -1,4 +1,5 @@
 #include <math.h>
+#include <string.h>
 #include <stm32f4_discovery.h>
 
 #define LILLE_VIDUNDER
@@ -38,3 +39,7 @@ extern void serial_output_hexbyte(uint8_t byte);
 extern void println_uint32(uint32_t val);
 extern void println_int32(int32_t val);
 extern void println_float(float f, uint32_t dig_before, uint32_t dig_after);
+extern void serial_dump_buf(uint8_t *buf, uint32_t len);
+
+/* spi.c */
+extern void setup_spi(void);

@@ -110,6 +110,16 @@ println_int32(int32_t val)
 }
 
 
+void
+println_uint32_hex(uint32_t val)
+{
+  serial_output_hexbyte(val >> 24);
+  serial_output_hexbyte((val >> 16) & 0xff);
+  serial_output_hexbyte((val >> 8) & 0xff);
+  serial_output_hexbyte(val & 0xff);
+}
+
+
 static void
 float_to_str(char *buf, float f, uint32_t dig_before, uint32_t dig_after)
 {
@@ -181,4 +191,24 @@ println_float(float f, uint32_t dig_before, uint32_t dig_after)
   *p++ = '\n';
   *p = '\0';
   serial_puts(buf);
+}
+
+
+void
+serial_dump_buf(uint8_t *buf, uint32_t len)
+{
+  uint32_t i, j;
+
+  for (i = 0; i < len; i += 16)
+  {
+    println_uint32_hex(i);
+    serial_puts(" ");
+    for (j = 0; j < 16 && (i+j) < len; ++j)
+    {
+      if (!(j % 4))
+        serial_puts(" ");
+      serial_output_hexbyte(buf[i+j]);
+    }
+    serial_puts("\r\n");
+  }
 }
