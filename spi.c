@@ -100,7 +100,7 @@ tlc_latch(void)
 
 
 static void
-send_to_tlcs(uint8_t *buf, uint32_t len)
+send_to_tlcs(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
 {
   uint32_t i;
 
@@ -109,19 +109,19 @@ send_to_tlcs(uint8_t *buf, uint32_t len)
 
   while (!(SPI1->SR & SPI_I2S_FLAG_TXE))
     ;
-  SPI1->DR = (uint8_t)buf[0];
+  SPI1->DR = (uint8_t)outbuf[0];
   for (i = 1; i < len; ++i)
   {
     while (!(SPI1->SR & SPI_I2S_FLAG_TXE))
       ;
-    SPI1->DR = (uint8_t)buf[i];
+    SPI1->DR = (uint8_t)outbuf[i];
     while (!(SPI1->SR & SPI_I2S_FLAG_RXNE))
       ;
-    buf[i-1] = (uint8_t)SPI1->DR;
+    inbuf[i-1] = (uint8_t)SPI1->DR;
   }
   while (!(SPI1->SR & SPI_I2S_FLAG_RXNE))
     ;
-  buf[len-1] = (uint8_t)SPI1->DR;
+  inbuf[len-1] = (uint8_t)SPI1->DR;
 }
 
 
@@ -162,25 +162,39 @@ setup_tlc_dc(void)
   tlc_mode_dc();
   /* Send a dummy byte first, will be shifted out at the other end... */
   status_buf[0] = 0;
-  send_to_tlcs(status_buf, 1);
-  send_to_tlcs(dc_buf, sizeof(dc_buf));
+  send_to_tlcs(status_buf, status_buf, 1);
+  send_to_tlcs(dc_buf, status_buf, sizeof(dc_buf));
   tlc_latch();
   serial_puts("Data back from sending DC:\r\n");
-  serial_dump_buf(dc_buf, sizeof(dc_buf));
+  serial_dump_buf(status_buf, sizeof(dc_buf));
 
   serial_puts("Now latch dummy GS data, to put status info in shift register.\r\n");
   memset(status_buf, 0x00, sizeof(status_buf));
   tlc_mode_gs();
-  send_to_tlcs(status_buf, sizeof(status_buf));
+  send_to_tlcs(status_buf, status_buf, sizeof(status_buf));
   tlc_latch();
   serial_puts("(Data back from GS latch:)\r\n");
   serial_dump_buf(status_buf, sizeof(status_buf));
   serial_puts("Now reading back status info from the TLCs...\r\n");
   memset(status_buf, 0x00, sizeof(status_buf));
   setup_tlc(1);
-  send_to_tlcs(status_buf, sizeof(status_buf));
+  send_to_tlcs(status_buf, status_buf, sizeof(status_buf));
   serial_puts("TLC status buffer:\r\n");
   serial_dump_buf(status_buf, sizeof(status_buf));
+
+  serial_puts("Check that DC data is loaded correctly...");
+  for (i = 0; i < 6; ++i)
+  {
+    if (0 != memcmp(dc_buf + i*(16*6/8), status_buf + i*(192/8) + 3, (16*6/8)))
+    {
+      serial_puts(" ouch, read DC data does not match for TLC number ");
+      println_uint32(i);
+      for (;;)
+        ;
+    }
+  }
+  serial_puts(" all ok!\r\n");
+
   serial_puts("Dat's all .oO\r\n");
 }
 
