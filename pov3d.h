@@ -23,6 +23,10 @@
 #endif
 
 
+/* Based on TIM5, running at 84 MHz. */
+#define GSCLK_PERIOD 4
+
+
 /* misc.c */
 extern void delay(__IO uint32_t nCount);
 
@@ -43,3 +47,6 @@ extern void serial_dump_buf(uint8_t *buf, uint32_t len);
 
 /* spi.c */
 extern void setup_spi(void);
+
+/* timers.c */
+extern void setup_gsclks(void);

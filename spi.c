@@ -44,7 +44,7 @@ setup_tlc(uint32_t for_read)
   SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;
   SPI_InitStructure.SPI_CPHA = (for_read ? SPI_CPHA_2Edge : SPI_CPHA_1Edge);
   SPI_InitStructure.SPI_NSS = SPI_NSS_Soft | SPI_NSSInternalSoft_Set;
-  SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_64;
+  SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;
   SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
   SPI_InitStructure.SPI_CRCPolynomial = 7;
   SPI_Init(SPI1, &SPI_InitStructure);
@@ -194,6 +194,33 @@ setup_tlc_dc(void)
     }
   }
   serial_puts(" all ok!\r\n");
+  serial_puts("Now load some GS data ...\r\n");
+  setup_tlc(0);
+  status_buf[0] = 0;
+  send_to_tlcs(status_buf, status_buf, 1);
+  idx = 0;
+  for (i = 0; i < 16*6/3; ++i)
+  {
+    for (j = 0; j < 3; ++j)
+    {
+      uint32_t gsval = ( (i & (1<<j)) ? 4095/(4-(i/8)) : 0);
+      if (!((i*3+j) & 1))
+      {
+        status_buf[idx] = gsval >> 4;
+        ++idx;
+        status_buf[idx] = (gsval << 4) & 0xf0;
+      }
+      else
+      {
+        status_buf[idx] |= (gsval >> 8);
+        ++idx;
+        status_buf[idx] = (gsval & 0xff);
+        ++idx;
+      }
+    }
+  }
+  send_to_tlcs(status_buf, status_buf, sizeof(status_buf));
+  tlc_latch();
 
   serial_puts("Dat's all .oO\r\n");
 }
