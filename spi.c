@@ -4,11 +4,12 @@
 /*
   TLCs are on:
     PA5 (CLK) PA6 (MISO) PA7 (MOSI) PA4 (LAT)
+    PA3 is VPRG/MODE.
 */
 
 
 static void
-setup_tlc(uint32_t for_read)
+setup_tlc()
 {
   /* ToDo: make the SPI a parameter so can be used for all 3. */
 
@@ -21,10 +22,16 @@ setup_tlc(uint32_t for_read)
   SPI_Cmd(SPI1, DISABLE);
   /* GPIOA Configuration: SPI1 CLK on PA5, MISO on PA6, MOSI on PA7. */
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5|GPIO_Pin_6|GPIO_Pin_7;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
   GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
+
+  /* First, setup direct GPIO with lines low. */
+  GPIO_Init(GPIOA, &GPIO_InitStructure);
+  GPIO_ResetBits(GPIOA, GPIO_Pin_5|GPIO_Pin_6|GPIO_Pin_7);
+  /* Then, setup the pins as the real alternate-function SPIs. */
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
   GPIO_Init(GPIOA, &GPIO_InitStructure);
 
   /* GPIOC Configuration: LAT on PA4. */
@@ -41,9 +48,11 @@ setup_tlc(uint32_t for_read)
   SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
   SPI_InitStructure.SPI_Mode = SPI_Mode_Master;
   SPI_InitStructure.SPI_DataSize = SPI_DataSize_8b;
+  /* SCLK is idle low, both setup and sample on rising edge. */
   SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;
-  SPI_InitStructure.SPI_CPHA = (for_read ? SPI_CPHA_2Edge : SPI_CPHA_1Edge);
+  SPI_InitStructure.SPI_CPHA = (SPI_CPHA_1Edge);
   SPI_InitStructure.SPI_NSS = SPI_NSS_Soft | SPI_NSSInternalSoft_Set;
+  /* SPI1 is on the 84 MHz APB2, so prescalar 4 is 21 MHz. */
   SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;
   SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
   SPI_InitStructure.SPI_CRCPolynomial = 7;
@@ -96,6 +105,36 @@ tlc_latch(void)
   delay(1);
   GPIO_ResetBits(GPIOA, GPIO_Pin_4);
   delay(1);
+}
+
+
+/*
+  There is a slight oddity with the TLC5940, when reading out the status
+  information. The first bit of status is put into the shift register (and thus
+  onto SOUT) only at the first SCLK transition _after_ latching grayscale data.
+  So we need to pulse SCLK one extra time (effectively shifting out one dummy
+  bit) after latching, and before reading out the status information.
+*/
+static void
+tlc_shiftout_extra_bit(void)
+{
+  GPIO_InitTypeDef GPIO_InitStructure;
+
+  /* Temporarily switch SPI pins to direct GPIO, and manually pulse one bit. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5|GPIO_Pin_6|GPIO_Pin_7;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
+  GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+  GPIO_ResetBits(GPIOA, GPIO_Pin_7); /* SIN low (not that it matters...) */
+  GPIO_SetBits(GPIOA, GPIO_Pin_5);   /* SCLK low */
+  delay(1);
+  GPIO_ResetBits(GPIOA, GPIO_Pin_5); /* SCLK high */
+
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+  GPIO_Init(GPIOA, &GPIO_InitStructure);
 }
 
 
@@ -160,7 +199,11 @@ setup_tlc_dc(void)
   serial_puts("Sending DC data to TLCs:\r\n");
   serial_dump_buf(dc_buf, sizeof(dc_buf));
   tlc_mode_dc();
-  /* Send a dummy byte first, will be shifted out at the other end... */
+  /*
+    Send a dummy byte first, will be shifted out at the other end.
+    Seems to avoid a problem where we occasionally get the very first bit
+    shifted out be a "1" instead of a "0"...
+  */
   status_buf[0] = 0;
   send_to_tlcs(status_buf, status_buf, 1);
   send_to_tlcs(dc_buf, status_buf, sizeof(dc_buf));
@@ -177,7 +220,7 @@ setup_tlc_dc(void)
   serial_dump_buf(status_buf, sizeof(status_buf));
   serial_puts("Now reading back status info from the TLCs...\r\n");
   memset(status_buf, 0x00, sizeof(status_buf));
-  setup_tlc(1);
+  tlc_shiftout_extra_bit();
   send_to_tlcs(status_buf, status_buf, sizeof(status_buf));
   serial_puts("TLC status buffer:\r\n");
   serial_dump_buf(status_buf, sizeof(status_buf));
@@ -195,9 +238,6 @@ setup_tlc_dc(void)
   }
   serial_puts(" all ok!\r\n");
   serial_puts("Now load some GS data ...\r\n");
-  setup_tlc(0);
-  status_buf[0] = 0;
-  send_to_tlcs(status_buf, status_buf, 1);
   idx = 0;
   for (i = 0; i < 16*6/3; ++i)
   {
@@ -229,7 +269,7 @@ setup_tlc_dc(void)
 void
 setup_spi(void)
 {
-  setup_tlc(0);
+  setup_tlc();
   setup_tcl_vprg();
   /* ToDo: Setup two remaining TLCs, and nRF. */
 
