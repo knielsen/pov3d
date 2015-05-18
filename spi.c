@@ -15,6 +15,7 @@ setup_tlc()
 
   GPIO_InitTypeDef GPIO_InitStructure;
   SPI_InitTypeDef SPI_InitStructure;
+  DMA_InitTypeDef DMA_InitStructure;
 
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);
@@ -58,6 +59,37 @@ setup_tlc()
   SPI_InitStructure.SPI_CRCPolynomial = 7;
   SPI_Init(SPI1, &SPI_InitStructure);
   SPI_Cmd(SPI1, ENABLE);
+
+  /*
+    Setup DMA.
+    SPI1 uses DMA2 stream 0 ch 3 (Rx) and stream 3 ch 3 (Tx).
+  */
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA2, ENABLE);
+  DMA_DeInit(DMA2_Stream0);
+  DMA_DeInit(DMA2_Stream3);
+
+  DMA_InitStructure.DMA_BufferSize = 1;
+  DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
+  DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_1QuarterFull;
+  DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
+  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+  DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
+  DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
+  DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI1->DR));
+  DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
+  DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+  DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+  DMA_InitStructure.DMA_Priority = DMA_Priority_High;
+  /* Configure TX DMA */
+  DMA_InitStructure.DMA_Channel = DMA_Channel_3;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
+  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
+  DMA_Init(DMA2_Stream3, &DMA_InitStructure);
+  /* Configure RX DMA */
+  DMA_InitStructure.DMA_Channel = DMA_Channel_3;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
+  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
+  DMA_Init(DMA2_Stream0, &DMA_InitStructure);
 }
 
 
@@ -138,7 +170,7 @@ tlc_shiftout_extra_bit(void)
 }
 
 
-static void
+static void __attribute__((unused))
 send_to_tlcs(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
 {
   uint32_t i;
@@ -161,6 +193,36 @@ send_to_tlcs(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
   while (!(SPI1->SR & SPI_I2S_FLAG_RXNE))
     ;
   inbuf[len-1] = (uint8_t)SPI1->DR;
+}
+
+
+static void
+dma_to_tlcs(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
+{
+  DMA2_Stream0->M0AR = (uint32_t)inbuf;
+  DMA2_Stream0->NDTR = len;
+  DMA2_Stream3->M0AR = (uint32_t)outbuf;
+  DMA2_Stream3->NDTR = len;
+
+  DMA_Cmd(DMA2_Stream0, ENABLE);
+  DMA_Cmd(DMA2_Stream3, ENABLE);
+  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Rx, ENABLE);
+  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, ENABLE);
+  while (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET)
+    ;
+  while (DMA_GetFlagStatus(DMA2_Stream0, DMA_FLAG_TCIF0)==RESET)
+    ;
+  DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
+  DMA_ClearFlag(DMA2_Stream0, DMA_FLAG_TCIF0);
+  DMA_Cmd(DMA2_Stream3, DISABLE);
+  DMA_Cmd(DMA2_Stream0, DISABLE);
+  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Rx, DISABLE);
+  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, DISABLE);
+
+  while (!(SPI1->SR & SPI_I2S_FLAG_TXE))
+    ;
+  while (SPI1->SR & SPI_I2S_FLAG_BSY)
+    ;
 }
 
 
@@ -205,8 +267,8 @@ setup_tlc_dc(void)
     shifted out be a "1" instead of a "0"...
   */
   status_buf[0] = 0;
-  send_to_tlcs(status_buf, status_buf, 1);
-  send_to_tlcs(dc_buf, status_buf, sizeof(dc_buf));
+  dma_to_tlcs(status_buf, status_buf, 1);
+  dma_to_tlcs(dc_buf, status_buf, sizeof(dc_buf));
   tlc_latch();
   serial_puts("Data back from sending DC:\r\n");
   serial_dump_buf(status_buf, sizeof(dc_buf));
@@ -214,14 +276,14 @@ setup_tlc_dc(void)
   serial_puts("Now latch dummy GS data, to put status info in shift register.\r\n");
   memset(status_buf, 0x00, sizeof(status_buf));
   tlc_mode_gs();
-  send_to_tlcs(status_buf, status_buf, sizeof(status_buf));
+  dma_to_tlcs(status_buf, status_buf, sizeof(status_buf));
   tlc_latch();
   serial_puts("(Data back from GS latch:)\r\n");
   serial_dump_buf(status_buf, sizeof(status_buf));
   serial_puts("Now reading back status info from the TLCs...\r\n");
   memset(status_buf, 0x00, sizeof(status_buf));
   tlc_shiftout_extra_bit();
-  send_to_tlcs(status_buf, status_buf, sizeof(status_buf));
+  dma_to_tlcs(status_buf, status_buf, sizeof(status_buf));
   serial_puts("TLC status buffer:\r\n");
   serial_dump_buf(status_buf, sizeof(status_buf));
 
@@ -259,7 +321,7 @@ setup_tlc_dc(void)
       }
     }
   }
-  send_to_tlcs(status_buf, status_buf, sizeof(status_buf));
+  dma_to_tlcs(status_buf, status_buf, sizeof(status_buf));
   tlc_latch();
 
   serial_puts("Dat's all .oO\r\n");
