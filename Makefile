@@ -113,7 +113,7 @@ clean:
 
 # Flash the STM32F4
 flash: 
-	st-flash write $(PROJ_NAME).bin 0x8000000
+	st-flash write $(PROJ_NAME).bin 0x8004000
 
 .PHONY: debug
 debug:
