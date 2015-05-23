@@ -89,7 +89,7 @@ CFLAGS += -ffunction-sections -fdata-sections -std=c99
 # tell ld which linker file to use
 # (this file is in the current directory)
 LFLAGS  = -Tstm32_flash.ld
-#LFLAGS += --gc-sections
+LFLAGS += -Wl,--gc-sections
 
 
 ######################################################################
