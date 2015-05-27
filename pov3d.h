@@ -2,7 +2,8 @@
 #include <string.h>
 #include <stm32f4_discovery.h>
 
-#define LILLE_VIDUNDER
+#define PCB_POV3D
+//#define LILLE_VIDUNDER
 
 #ifdef STM32F4_DISCOVERY
 #define LED_PERIPH RCC_AHB1Periph_GPIOD
@@ -50,3 +51,7 @@ extern void setup_spi(void);
 
 /* timers.c */
 extern void setup_gsclks(void);
+
+/* adc.c */
+extern void config_adc(void);
+extern uint32_t adc_read(void);

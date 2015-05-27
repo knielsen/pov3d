@@ -32,7 +32,9 @@ main(void)
   serial_puts("Starting GSCLKs...\r\n");
   setup_gsclks();
   serial_puts("Setting up TLCs...\r\n");
-  setup_spi();
+  //setup_spi();
+  serial_puts("Configuring ADC...\r\n");
+  config_adc();
   serial_puts("Setup done, starting loop...\r\n");
   led_state = 0;
   led_count = 0;
@@ -47,9 +49,17 @@ main(void)
     if (led_count >= 30000000/(4096*GSCLK_PERIOD))
     {
       if (led_state)
+      {
+        uint32_t val;
+
         led_on();
+        val = adc_read();
+        println_uint32(val);
+      }
       else
+      {
         led_off();
+      }
       led_state = led_state ^ 1;
       serial_putchar('.');
       led_count = 0;
