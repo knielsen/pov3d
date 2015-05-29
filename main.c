@@ -32,7 +32,7 @@ main(void)
   serial_puts("Starting GSCLKs...\r\n");
   setup_gsclks();
   serial_puts("Setting up TLCs...\r\n");
-  //setup_spi();
+  setup_spi();
   serial_puts("Configuring ADC...\r\n");
   config_adc();
   serial_puts("Setup done, starting loop...\r\n");
