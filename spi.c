@@ -564,12 +564,151 @@ setup_tlc_dc(void)
 }
 
 
+static void
+add_bits(uint8_t *buf, uint32_t len, uint32_t val, uint32_t size, uint32_t *pos)
+{
+  uint32_t loc_pos = *pos;
+  while (size)
+  {
+    if (val & 1)
+      buf[len - 1 - (loc_pos>>3)] |= 1 << (loc_pos & 7);
+    val >>= 1;
+    --size;
+    ++loc_pos;
+  }
+  *pos = loc_pos;
+}
+
+
+static void
+shift_buf_7_bits(uint8_t *buf, uint32_t len)
+{
+  uint32_t i;
+  uint8_t old;
+
+  old = 0;
+  for (i = 0; i < len; ++i)
+  {
+    uint8_t val = buf[i];
+    buf[i] = (old << 1) | (val >> 7);
+    old = val;
+  }
+}
+
+
+static void
+fill_tlc5955_control_latch(uint8_t *buf,
+                           uint32_t dc_val, uint32_t bc_val, uint32_t mc_val)
+{
+  uint32_t pos = 0;
+  uint32_t i;
+
+  memset(buf, 0, 97);
+  for (i = 0; i < 48; ++i)
+    add_bits(buf, 97, dc_val, 7, &pos);
+  for (i = 0; i < 3; ++i)
+    add_bits(buf, 97, mc_val, 3, &pos);
+  for (i = 0; i < 3; ++i)
+    add_bits(buf, 97, bc_val, 7, &pos);
+  /*
+    Control bits:
+      366 DSPRPT  1   auto repeat (ToDo: turn off...)
+      367 TMGRST  1   display timing reset mode enabled (reset GS at LAT)
+      368 RFRESH  0   auto data refresh disabled
+      369 ESPWM   0   disable enhanced spectrum PWM
+      370 LSDVLT  0   LSD voltage is VCC * 0.7
+  */
+  add_bits(buf, 97, 0x03, 5, &pos);
+  /* Need 0x1 0x96 at start of buffer to latch control register. */
+  pos = 760;
+  add_bits(buf, 97, 0x196, 9, &pos);
+}
+
+
+static void
+fill_tlc5955_gs_latch(uint8_t *buf, uint32_t max_gs)
+{
+  uint32_t i, j;
+  uint32_t idx;
+
+  /*
+    Bit 768=0 latches GS register. We shift out bits 769-775 also, for
+    simplicity.
+  */
+  buf[0] = 0;
+  idx = 1;
+  for (i = 0; i < 16; ++i)
+  {
+    for (j = 0; j < 3; ++j)
+    {
+      uint32_t gsval = ( (4/*i*/ & (1<<j)) ? max_gs/(2-(i/8)) : 0);
+      buf[idx++] = gsval >> 8;
+      buf[idx++] = gsval & 0xff;
+    }
+  }
+}
+
+
+static void
+setup_tlc5955(void)
+{
+  uint8_t databuf[97], inbuf[97], tmpbuf[97];
+
+  /*
+    MC=4 is 19.1 mA max.
+    BC=0 is 10% -> 1.91 mA.
+    DC=0 is 26.2% ->0.5 mA.
+    Should be safe even for USB usage.
+  */
+  fill_tlc5955_control_latch(databuf, 0, 0, 4);
+  serial_puts("Sending control register data to TLC5955:\r\n");
+  serial_dump_buf(databuf, sizeof(databuf));
+  dma_to_tlcs(databuf, inbuf, sizeof(databuf));
+  tlc_latch();
+  serial_puts("Data back from sending control data:\r\n");
+  serial_dump_buf(inbuf, sizeof(inbuf));
+
+  serial_puts("Now latch zero GS data, and read old contents of shift register.\r\n");
+  memset(tmpbuf, 0x00, sizeof(tmpbuf));
+  dma_to_tlcs(tmpbuf, inbuf, sizeof(tmpbuf));
+  tlc_latch();
+  /* Since we shift out 7 bits too many, we need to adjust the result read. */
+  shift_buf_7_bits(inbuf, 97);
+  serial_puts("(Data back from GS latch:)\r\n");
+  serial_dump_buf(inbuf, sizeof(inbuf));
+  if (0 != memcmp(databuf, inbuf, sizeof(databuf)))
+  {
+    serial_puts(" ouch, read control data does not match!\r\n");
+    for (;;)
+      ;
+  }
+  else
+    serial_puts("Nice, read control data matches\r\n");
+  serial_puts("Now write control word second time to stick...\r\n");
+  serial_dump_buf(databuf, sizeof(databuf));
+  dma_to_tlcs(databuf, inbuf, sizeof(databuf));
+  tlc_latch();
+  serial_puts("Data back from sending control data:\r\n");
+  serial_dump_buf(inbuf, sizeof(inbuf));
+  serial_puts(" all ok!\r\n");
+  serial_puts("Now load some GS data ...\r\n");
+  fill_tlc5955_gs_latch(tmpbuf, 4095);
+  serial_dump_buf(tmpbuf, sizeof(tmpbuf));
+  dma_to_tlcs(tmpbuf, inbuf, sizeof(tmpbuf));
+  tlc_latch();
+  serial_puts("Data back from sending GS:\r\n");
+  serial_dump_buf(inbuf, sizeof(inbuf));
+
+  serial_puts("Dat's all .oO\r\n");
+}
+
+
 void
 setup_spi(void)
 {
   setup_tlcs();
-  setup_tcl_vprg();
+  //setup_tcl_vprg();
   /* ToDo: Setup two remaining TLCs, and nRF. */
 
-  setup_tlc_dc();
+  setup_tlc5955();
 }

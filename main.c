@@ -29,12 +29,12 @@ main(void)
     GPIO_SetBits(GPIOB, GPIO_Pin_0);
   }
   serial_puts("\r\n\r\nPOV3D Copyright 2015 Kristian Nielsen\r\n");
-  serial_puts("Starting GSCLKs...\r\n");
-  setup_gsclks();
   serial_puts("Setting up TLCs...\r\n");
   setup_spi();
   serial_puts("Configuring ADC...\r\n");
   config_adc();
+  serial_puts("Starting GSCLKs...\r\n");
+  setup_gsclks();
   serial_puts("Setup done, starting loop...\r\n");
   led_state = 0;
   led_count = 0;

@@ -2,8 +2,8 @@
 #include <string.h>
 #include <stm32f4_discovery.h>
 
-//#define PCB_POV3D
-#define LILLE_VIDUNDER
+#define PCB_POV3D
+//#define LILLE_VIDUNDER
 
 #ifdef STM32F4_DISCOVERY
 #define LED_PERIPH RCC_AHB1Periph_GPIOD
