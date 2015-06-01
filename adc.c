@@ -62,3 +62,11 @@ adc_read(void)
 
   return ADC_GetConversionValue(ADC1);
 }
+
+
+float
+voltage_read(void)
+{
+  uint32_t reading = adc_read();
+  return ((float)reading)*((32.0f/10.0f)*3.3f/4095.0f);
+}

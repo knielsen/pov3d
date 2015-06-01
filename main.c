@@ -34,11 +34,11 @@ main(void)
     {
       if (led_state)
       {
-        uint32_t val;
+        float val;
 
         led_on();
-        val = adc_read();
-        println_uint32(val);
+        val = voltage_read();
+        println_float(val, 1, 3);
       }
       else
       {

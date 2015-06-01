@@ -55,3 +55,4 @@ extern void setup_gsclks(void);
 /* adc.c */
 extern void config_adc(void);
 extern uint32_t adc_read(void);
+extern float voltage_read(void);
