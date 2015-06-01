@@ -409,41 +409,28 @@ setup_tlc5955(void (*latch_func)(void),
   serial_dump_buf(databuf, sizeof(databuf));
   (*dma_func)(databuf, inbuf, sizeof(databuf));
   (*latch_func)();
-  serial_puts("Data back from sending control data:\r\n");
-  serial_dump_buf(inbuf, sizeof(inbuf));
 
-  serial_puts("Now latch zero GS data, and read old contents of shift register.\r\n");
   memset(tmpbuf, 0x00, sizeof(tmpbuf));
   (*dma_func)(tmpbuf, inbuf, sizeof(tmpbuf));
   (*latch_func)();
   /* Since we shift out 7 bits too many, we need to adjust the result read. */
   shift_buf_7_bits(inbuf, 97);
-  serial_puts("(Data back from GS latch:)\r\n");
-  serial_dump_buf(inbuf, sizeof(inbuf));
   if (0 != memcmp(databuf, inbuf, sizeof(databuf)))
   {
+    serial_dump_buf(inbuf, sizeof(inbuf));
     serial_puts(" ouch, read control data does not match!\r\n");
     for (;;)
       ;
   }
   else
-    serial_puts("Nice, read control data matches\r\n");
-  serial_puts("Now write control word second time to stick...\r\n");
-  serial_dump_buf(databuf, sizeof(databuf));
+    serial_puts("Control data verified ok, rewrite to confirm config\r\n");
   (*dma_func)(databuf, inbuf, sizeof(databuf));
   (*latch_func)();
-  serial_puts("Data back from sending control data:\r\n");
-  serial_dump_buf(inbuf, sizeof(inbuf));
-  serial_puts(" all ok!\r\n");
   serial_puts("Now load some GS data ...\r\n");
   fill_tlc5955_gs_latch(tmpbuf, 4095);
   serial_dump_buf(tmpbuf, sizeof(tmpbuf));
   (*dma_func)(tmpbuf, inbuf, sizeof(tmpbuf));
   (*latch_func)();
-  serial_puts("Data back from sending GS:\r\n");
-  serial_dump_buf(inbuf, sizeof(inbuf));
-
-  serial_puts("Dat's all .oO\r\n");
 }
 
 
