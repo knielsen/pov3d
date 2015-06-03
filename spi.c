@@ -361,7 +361,7 @@ fill_tlc5955_control_latch(uint8_t *buf,
       369 ESPWM   0   disable enhanced spectrum PWM
       370 LSDVLT  0   LSD voltage is VCC * 0.7
   */
-  add_bits(buf, 97, 0x03, 5, &pos);
+  add_bits(buf, 97, 0x0b, 5, &pos);
   /* Need 0x1 0x96 at start of buffer to latch control register. */
   pos = 760;
   add_bits(buf, 97, 0x196, 9, &pos);
@@ -443,4 +443,70 @@ setup_spi(void)
   setup_tlc5955(tlc1_latch, dma_to_tlc1);
   setup_tlc5955(tlc2_latch, dma_to_tlc2);
   setup_tlc5955(tlc3_latch, dma_to_tlc3);
+}
+
+
+/*
+  TLC data is passed as uint32_t *, as we want them to be 32-bit aligned
+  for DMA burst transfers.
+
+  The scanplanes should have a leading 0x0000 word (only the one bit is needed
+  to mark GS data, but 16 using bits makes all GS values 16-bit aligned.
+*/
+void
+start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3)
+{
+  static const uint32_t len = 2+48*2;           /* 48 outputs + extra word */
+  DMA2_Stream3->M0AR = (uint32_t)p1;
+  DMA2_Stream3->NDTR = len;
+  DMA1_Stream4->M0AR = (uint32_t)p2;
+  DMA1_Stream4->NDTR = len;
+  DMA1_Stream5->M0AR = (uint32_t)p3;
+  DMA1_Stream5->NDTR = len;
+
+  DMA_Cmd(DMA2_Stream3, ENABLE);
+  DMA_Cmd(DMA1_Stream4, ENABLE);
+  DMA_Cmd(DMA1_Stream5, ENABLE);
+  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, ENABLE);
+  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Tx, ENABLE);
+  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Tx, ENABLE);
+
+  /* ToDo: For now, we wait (just testing). Later we will only start. */
+  while (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET)
+    ;
+  while (DMA_GetFlagStatus(DMA1_Stream4, DMA_FLAG_TCIF4) == RESET)
+    ;
+  while (DMA_GetFlagStatus(DMA1_Stream5, DMA_FLAG_TCIF5) == RESET)
+    ;
+  DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
+  DMA_ClearFlag(DMA1_Stream4, DMA_FLAG_TCIF4);
+  DMA_ClearFlag(DMA1_Stream5, DMA_FLAG_TCIF5);
+  DMA_Cmd(DMA2_Stream3, DISABLE);
+  DMA_Cmd(DMA1_Stream4, DISABLE);
+  DMA_Cmd(DMA1_Stream5, DISABLE);
+  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, DISABLE);
+  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Tx, DISABLE);
+  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Tx, DISABLE);
+
+  while (!(SPI1->SR & SPI_I2S_FLAG_TXE))
+    ;
+  while (!(SPI2->SR & SPI_I2S_FLAG_TXE))
+    ;
+  while (!(SPI3->SR & SPI_I2S_FLAG_TXE))
+    ;
+  while (SPI1->SR & SPI_I2S_FLAG_BSY)
+    ;
+  while (SPI2->SR & SPI_I2S_FLAG_BSY)
+    ;
+  while (SPI3->SR & SPI_I2S_FLAG_BSY)
+    ;
+  /* Latch. */
+  delay(1);
+  GPIO_SetBits(GPIOA, GPIO_Pin_4);
+  GPIO_SetBits(GPIOC, GPIO_Pin_6);
+  GPIO_SetBits(GPIOC, GPIO_Pin_5);
+  delay(1);
+  GPIO_ResetBits(GPIOA, GPIO_Pin_4);
+  GPIO_ResetBits(GPIOC, GPIO_Pin_6);
+  GPIO_ResetBits(GPIOC, GPIO_Pin_5);
 }

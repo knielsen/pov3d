@@ -6,6 +6,25 @@
 int __errno;
 
 
+static void
+test_scan_plane(uint32_t s)
+{
+  uint32_t b[25];
+  uint32_t i;
+  uint16_t *p = (uint16_t *)(&b[0]);
+
+  p[0] = 0;
+  for (i = 1; i <= 48; ++i)
+  {
+    uint16_t val;
+    val = ((i + s) % 3 ? 0 : 4095);
+    p[i] = __REV16(val);
+  }
+  // ToDo check if DMA is done before starting new.
+  start_dma_scanplanes(b, b, b);
+}
+
+
 int
 main(void)
 {
@@ -32,7 +51,7 @@ main(void)
     ++led_count;
     if (led_count >= 30000000/(4096*GSCLK_PERIOD))
     {
-      if (led_state)
+      if (led_state & 1)
       {
         float val;
 
@@ -44,7 +63,8 @@ main(void)
       {
         led_off();
       }
-      led_state = led_state ^ 1;
+      test_scan_plane(led_state);
+      ++led_state;
       serial_putchar('.');
       led_count = 0;
     }

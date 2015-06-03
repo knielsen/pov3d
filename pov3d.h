@@ -48,6 +48,7 @@ extern void serial_dump_buf(uint8_t *buf, uint32_t len);
 
 /* spi.c */
 extern void setup_spi(void);
+extern void start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3);
 
 /* timers.c */
 extern void setup_gsclks(void);
