@@ -447,16 +447,31 @@ setup_spi(void)
 
 
 /*
+  Start transfer of scanplanes to the TLC5955 chips.
+
+  The scanplanes are each a sequence of 48 16-bit PWM grayscale values in
+  big-endian format. The scanplanes should have a leading 0x0000 word (only
+  the one bit is needed to mark GS data, but 16 using bits makes all GS values
+  16-bit aligned.
+
+  This function only starts the DMA transfer. After the transfer is complete,
+  the latch_scanplanes() function must be called to actually latch the GS
+  values into the grayscale registers.
+
+  The end of the transfer can be queried using is_tlc_dma_done().
+
   TLC data is passed as uint32_t *, as we want them to be 32-bit aligned
   for DMA burst transfers.
-
-  The scanplanes should have a leading 0x0000 word (only the one bit is needed
-  to mark GS data, but 16 using bits makes all GS values 16-bit aligned.
 */
 void
 start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3)
 {
   static const uint32_t len = 2+48*2;           /* 48 outputs + extra word */
+
+  DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
+  DMA_ClearFlag(DMA1_Stream4, DMA_FLAG_TCIF4);
+  DMA_ClearFlag(DMA1_Stream5, DMA_FLAG_TCIF5);
+
   DMA2_Stream3->M0AR = (uint32_t)p1;
   DMA2_Stream3->NDTR = len;
   DMA1_Stream4->M0AR = (uint32_t)p2;
@@ -470,37 +485,12 @@ start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3)
   SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, ENABLE);
   SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Tx, ENABLE);
   SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Tx, ENABLE);
+}
 
-  /* ToDo: For now, we wait (just testing). Later we will only start. */
-  while (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET)
-    ;
-  while (DMA_GetFlagStatus(DMA1_Stream4, DMA_FLAG_TCIF4) == RESET)
-    ;
-  while (DMA_GetFlagStatus(DMA1_Stream5, DMA_FLAG_TCIF5) == RESET)
-    ;
-  DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
-  DMA_ClearFlag(DMA1_Stream4, DMA_FLAG_TCIF4);
-  DMA_ClearFlag(DMA1_Stream5, DMA_FLAG_TCIF5);
-  DMA_Cmd(DMA2_Stream3, DISABLE);
-  DMA_Cmd(DMA1_Stream4, DISABLE);
-  DMA_Cmd(DMA1_Stream5, DISABLE);
-  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, DISABLE);
-  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Tx, DISABLE);
-  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Tx, DISABLE);
 
-  while (!(SPI1->SR & SPI_I2S_FLAG_TXE))
-    ;
-  while (!(SPI2->SR & SPI_I2S_FLAG_TXE))
-    ;
-  while (!(SPI3->SR & SPI_I2S_FLAG_TXE))
-    ;
-  while (SPI1->SR & SPI_I2S_FLAG_BSY)
-    ;
-  while (SPI2->SR & SPI_I2S_FLAG_BSY)
-    ;
-  while (SPI3->SR & SPI_I2S_FLAG_BSY)
-    ;
-  /* Latch. */
+void
+latch_scanplanes(void)
+{
   delay(1);
   GPIO_SetBits(GPIOA, GPIO_Pin_4);
   GPIO_SetBits(GPIOC, GPIO_Pin_6);
@@ -509,4 +499,23 @@ start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3)
   GPIO_ResetBits(GPIOA, GPIO_Pin_4);
   GPIO_ResetBits(GPIOC, GPIO_Pin_6);
   GPIO_ResetBits(GPIOC, GPIO_Pin_5);
+}
+
+
+uint32_t
+is_tlc_dma_done(void)
+{
+  if (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET ||
+      DMA_GetFlagStatus(DMA1_Stream4, DMA_FLAG_TCIF4) == RESET ||
+      DMA_GetFlagStatus(DMA1_Stream5, DMA_FLAG_TCIF5) == RESET)
+    return 0;
+  if (!(SPI1->SR & SPI_I2S_FLAG_TXE) ||
+      !(SPI2->SR & SPI_I2S_FLAG_TXE) ||
+      !(SPI3->SR & SPI_I2S_FLAG_TXE))
+    return 0;
+  if ((SPI1->SR & SPI_I2S_FLAG_BSY) ||
+      (SPI2->SR & SPI_I2S_FLAG_BSY) ||
+      (SPI3->SR & SPI_I2S_FLAG_BSY))
+    return 0;
+  return 1;
 }

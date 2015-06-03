@@ -13,6 +13,8 @@ test_scan_plane(uint32_t s)
   uint32_t i;
   uint16_t *p = (uint16_t *)(&b[0]);
 
+  latch_scanplanes();
+
   p[0] = 0;
   for (i = 1; i <= 48; ++i)
   {
@@ -63,7 +65,12 @@ main(void)
       {
         led_off();
       }
-      test_scan_plane(led_state);
+      /* After first transfer, skip subsequent if old one is not done. */
+      if (led_state == 0 || is_tlc_dma_done())
+        test_scan_plane(led_state);
+      else
+        serial_puts("Hm, skip due to DMA not completed?!?\r\n");
+
       ++led_state;
       serial_putchar('.');
       led_count = 0;
