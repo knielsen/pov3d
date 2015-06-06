@@ -78,7 +78,7 @@ extern void latch_scanplanes(void);
 extern uint32_t is_tlc_dma_done(void);
 
 /* timers.c */
-extern void setup_gsclks(void);
+extern void setup_timers(void);
 
 /* adc.c */
 extern void config_adc(void);

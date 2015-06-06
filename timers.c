@@ -11,7 +11,10 @@
 #include "pov3d.h"
 
 
-void
+static volatile uint32_t scan_counter;
+
+
+static void
 setup_gsclks(void)
 {
   GPIO_InitTypeDef GPIO_InitStructure;
@@ -52,4 +55,98 @@ setup_gsclks(void)
   TIM_OC3PreloadConfig(TIM5, TIM_OCPreload_Enable);
   TIM_ARRPreloadConfig(TIM5, ENABLE);
   TIM_Cmd(TIM5, ENABLE);
+}
+
+
+static void
+setup_scanplane_timer(void)
+{
+  TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
+  NVIC_InitTypeDef NVIC_InitStructure;
+
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6, ENABLE);
+
+  TIM_TimeBaseStructure.TIM_Period = 4095;
+  TIM_TimeBaseStructure.TIM_Prescaler = GSCLK_PERIOD-1;
+  /* Remaining fields not used for TIM6/TIM7. */
+  TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+  TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+  TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
+  TIM_TimeBaseInit(TIM6, &TIM_TimeBaseStructure);
+
+  TIM_ARRPreloadConfig(TIM6, ENABLE);
+  TIM_SelectOnePulseMode(TIM6, TIM_OPMode_Repetitive);
+  TIM_UpdateRequestConfig(TIM6, TIM_UpdateSource_Regular);
+  TIM_UpdateDisableConfig(TIM6, DISABLE);
+
+  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
+  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 10;
+  NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+  NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+  NVIC_InitStructure.NVIC_IRQChannel = TIM6_DAC_IRQn;
+  NVIC_Init(&NVIC_InitStructure);
+  TIM_ITConfig(TIM6, TIM_IT_Update, ENABLE);
+
+  TIM_Cmd(TIM6, ENABLE);
+}
+
+
+static uint32_t scanplane_buffers[2][3][25];
+static uint8_t scanbuffer_idx = 0;
+static uint8_t init_counter = 0;
+void TIM6_DAC_IRQHandler(void)
+{
+  if (TIM6->SR & TIM_IT_Update)
+  {
+    uint32_t c;
+    uint8_t idx;
+    uint8_t ic;
+
+    ic = init_counter;
+    if (ic >= 2)
+      latch_scanplanes();
+
+    idx = scanbuffer_idx;
+    if (ic >= 2 && !is_tlc_dma_done())
+    {
+      serial_putchar('!');
+    }
+    else if (ic >= 1)
+    {
+      start_dma_scanplanes(scanplane_buffers[idx][0],
+                           scanplane_buffers[idx][1],
+                           scanplane_buffers[idx][2]);
+    }
+
+    if (ic < 2)
+    {
+      ++ic;
+      init_counter = ic;
+    }
+    idx = 1 - idx;
+    scanbuffer_idx = idx;
+    c = scan_counter;
+
+    /* ToDo: Just trigger a software interrupt to do this at low prio. */
+    make_scan_planes(c, scanplane_buffers[idx][0],
+                     scanplane_buffers[idx][1],
+                     scanplane_buffers[idx][2], 0);
+
+    ++c;
+    if (c >= LEDS_TANG)
+    {
+      c = 0;
+    }
+    scan_counter = c;
+
+    TIM6->SR = (uint16_t)~TIM_IT_Update;
+  }
+}
+
+
+void
+setup_timers(void)
+{
+  setup_gsclks();
+  setup_scanplane_timer();
 }

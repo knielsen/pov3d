@@ -6,17 +6,6 @@
 int __errno;
 
 
-static void
-test_scan_plane(uint32_t s)
-{
-  uint32_t b1[25], b2[25], b3[25];
-
-  latch_scanplanes();
-  make_scan_planes(s % LEDS_TANG, b1, b2, b3, 0);
-  start_dma_scanplanes(b1, b2, b3);
-}
-
-
 int
 main(void)
 {
@@ -32,8 +21,8 @@ main(void)
   init_tlc();
   serial_puts("Configuring ADC...\r\n");
   config_adc();
-  serial_puts("Starting GSCLKs...\r\n");
-  setup_gsclks();
+  serial_puts("Starting timers...\r\n");
+  setup_timers();
   serial_puts("Setup done, starting loop...\r\n");
 
   led_state = 0;
@@ -58,11 +47,6 @@ main(void)
       {
         led_off();
       }
-      /* After first transfer, skip subsequent if old one is not done. */
-      if (led_state == 0 || is_tlc_dma_done())
-        test_scan_plane(led_state);
-      else
-        serial_puts("Hm, skip due to DMA not completed?!?\r\n");
 
       ++led_state;
       serial_putchar('.');
