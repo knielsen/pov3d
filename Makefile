@@ -22,7 +22,7 @@ STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
 vpath %.c $(STM_SRC)
 
 # My source file
-SRCS   = main.c led.c dbg.c spi.c timers.c adc.c
+SRCS   = main.c led.c dbg.c spi.c timers.c adc.c tlc.c misc.c gfx.c
 
 # Contains initialisation code and must be compiled into
 # our project. This file is in the current directory and
@@ -38,7 +38,6 @@ SRCS  += stm32f4xx_spi.c
 SRCS  += stm32f4xx_tim.c
 SRCS  += stm32f4xx_dma.c
 SRCS  += stm32f4xx_adc.c
-SRCS  += misc.c
 
 # Startup file written by ST
 # The assembly code in this file is the first one to be
@@ -80,7 +79,7 @@ DEFS    = -DUSE_STDPERIPH_DRIVER
 
 ## Compiler options
 CFLAGS  = -ggdb
-CFLAGS += -O3
+CFLAGS += -O2
 CFLAGS += -Wall -Wextra -Warray-bounds
 CFLAGS += -mlittle-endian -mthumb -mcpu=cortex-m4 -mthumb-interwork
 CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
@@ -106,7 +105,7 @@ $(PROJ_NAME).elf: $(SRCS)
 	$(CC) $(INCLUDE) $(DEFS) $(CFLAGS) $(LFLAGS) $^ -o $@ 
 	$(OBJCOPY) -O ihex $(PROJ_NAME).elf   $(PROJ_NAME).hex
 	$(OBJCOPY) -O binary $(PROJ_NAME).elf $(PROJ_NAME).bin
-$(PROJ_NAME).elf: pov3d.h
+#$(PROJ_NAME).elf: pov3d.h
 
 
 clean:

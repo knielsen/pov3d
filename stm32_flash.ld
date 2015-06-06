@@ -44,9 +44,7 @@ MEMORY
 {
   FLASH (rx)      : ORIGIN = 0x08004000, LENGTH = 1008K
   RAM2 (xrw)      : ORIGIN = 0x10000000, LENGTH = 64K
-  RAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 0x05000
-  LOG (rw)        : ORIGIN = 0x20005000, LENGTH = 0x1b000
-  MEMORY_B1 (rx)  : ORIGIN = 0x60000000, LENGTH = 0K
+  RAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 0x20000
 }
 
 /* Define output sections */
@@ -150,23 +148,6 @@ SECTIONS
     . = . + _Min_Stack_Size;
     . = ALIGN(4);
   } >RAM
-
-  .debug_log (NOLOAD) :
-  {
-    _debug_log_start = .;
-    *(.debug_log)
-    _debug_log_end = .;
-  } > LOG
-
-  /* MEMORY_bank1 section, code must be located here explicitly            */
-  /* Example: extern int foo(void) __attribute__ ((section (".mb1text"))); */
-  .memory_b1_text :
-  {
-    *(.mb1text)        /* .mb1text sections (code) */
-    *(.mb1text*)       /* .mb1text* sections (code)  */
-    *(.mb1rodata)      /* read-only data (constants) */
-    *(.mb1rodata*)
-  } >MEMORY_B1
 
   /* Remove information from the standard libraries */
   /DISCARD/ :

@@ -9,21 +9,11 @@ int __errno;
 static void
 test_scan_plane(uint32_t s)
 {
-  uint32_t b[25];
-  uint32_t i;
-  uint16_t *p = (uint16_t *)(&b[0]);
+  uint32_t b1[25], b2[25], b3[25];
 
   latch_scanplanes();
-
-  p[0] = 0;
-  for (i = 1; i <= 48; ++i)
-  {
-    uint16_t val;
-    val = ((i + s) % 3 ? 0 : 4095);
-    p[i] = __REV16(val);
-  }
-  // ToDo check if DMA is done before starting new.
-  start_dma_scanplanes(b, b, b);
+  make_scan_planes(s % LEDS_TANG, b1, b2, b3, 0);
+  start_dma_scanplanes(b1, b2, b3);
 }
 
 
@@ -39,13 +29,16 @@ main(void)
   serial_puts("\r\n\r\nPOV3D Copyright 2015 Kristian Nielsen\r\n");
   serial_puts("Setting up TLCs...\r\n");
   setup_spi();
+  init_tlc();
   serial_puts("Configuring ADC...\r\n");
   config_adc();
   serial_puts("Starting GSCLKs...\r\n");
   setup_gsclks();
   serial_puts("Setup done, starting loop...\r\n");
+
   led_state = 0;
   led_count = 0;
+  test_img1();
   for (;;)
   {
     delay(4096*GSCLK_PERIOD*2/3);

@@ -24,6 +24,30 @@
 #endif
 
 
+/*
+  In the LED-torus prototype, we have 7 (horizontal) x 8 (vertical) RGB LEDs.
+  But the corners are cut, so that these LEDs are missing, counting the X
+  direction from the center and out, and the Y direction from the bottom up:
+
+    (0,0) (0,1) (0,6) (0,7) (1,0) (1,7) (6,0) (6,7)
+
+         * * * *
+       * * * * * *
+     * * * * * * *
+     * * * * * * *
+     * * * * * * *
+     * * * * * * *
+       * * * * * *
+         * * * *
+*/
+#define LEDS_X 7
+#define LEDS_Y 8
+#define LEDS_TANG 335
+
+
+typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
+
+
 /* Based on TIM5, running at 84 MHz. */
 #define GSCLK_PERIOD 4
 
@@ -43,6 +67,7 @@ extern void serial_puts(const char *s);
 extern void serial_output_hexbyte(uint8_t byte);
 extern void println_uint32(uint32_t val);
 extern void println_int32(int32_t val);
+extern void print_uint32_hex(uint32_t val);
 extern void println_float(float f, uint32_t dig_before, uint32_t dig_after);
 extern void serial_dump_buf(uint8_t *buf, uint32_t len);
 
@@ -59,3 +84,14 @@ extern void setup_gsclks(void);
 extern void config_adc(void);
 extern uint32_t adc_read(void);
 extern float voltage_read(void);
+
+/* tlc.c */
+extern void make_scan_planes(uint32_t angle, uint32_t *b1, uint32_t *b2,
+                             uint32_t *b3, uint32_t framebuf_idx);
+extern void init_tlc(void);
+extern uint8_t (*render_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3];
+extern uint8_t (*display_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3];
+extern void flip_framebuf(void);
+
+/* gfx.c */
+extern void test_img1(void);
