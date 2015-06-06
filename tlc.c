@@ -160,8 +160,17 @@ init_tlc(void)
 {
   uint32_t i, j;
 
+  /*
+    Compute the gamma corrections.
+
+    We multiply by 16 to use the full 0..65535 range, because this is needed
+    with enhanced spectrum PWM.
+
+    We byteswap as Cortex M4 is little endian, while the TLC5955's are big
+    endian.
+  */
   for (i = 0; i < 256; ++i)
-    gammas[i] = __REV16(gammas_flash[i]);
+    gammas[i] = __REV16(gammas_flash[i]*16);
 
   for (j = 0; j < 3; ++j)
   {

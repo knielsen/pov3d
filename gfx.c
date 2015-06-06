@@ -29,6 +29,8 @@ test_img1(void)
   cls(f);
   for (a = 0; a < LEDS_TANG; ++a)
   {
+    if ((a % 10) > 1)
+      continue;
     for (x = 0; x < LEDS_X; ++x)
     {
       for (y = 0; y < LEDS_Y; ++y)

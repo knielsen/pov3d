@@ -355,13 +355,13 @@ fill_tlc5955_control_latch(uint8_t *buf,
     add_bits(buf, 97, bc_val, 7, &pos);
   /*
     Control bits:
-      366 DSPRPT  1   auto repeat (ToDo: turn off...)
+      366 DSPRPT  0   Disable auto repeat
       367 TMGRST  1   display timing reset mode enabled (reset GS at LAT)
       368 RFRESH  0   auto data refresh disabled
-      369 ESPWM   0   disable enhanced spectrum PWM
+      369 ESPWM   1   Enable enhanced spectrum PWM
       370 LSDVLT  0   LSD voltage is VCC * 0.7
   */
-  add_bits(buf, 97, 0x0b, 5, &pos);
+  add_bits(buf, 97, 0x0a, 5, &pos);
   /* Need 0x1 0x96 at start of buffer to latch control register. */
   pos = 760;
   add_bits(buf, 97, 0x196, 9, &pos);
