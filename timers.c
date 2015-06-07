@@ -94,6 +94,7 @@ setup_scanplane_timer(void)
 static uint32_t scanplane_buffers[2][3][25];
 static uint8_t scanbuffer_idx = 0;
 static uint8_t init_counter = 0;
+static volatile uint32_t frame_counter = 0;
 void TIM6_DAC_IRQHandler(void)
 {
   if (TIM6->SR & TIM_IT_Update)
@@ -130,17 +131,26 @@ void TIM6_DAC_IRQHandler(void)
     /* ToDo: Just trigger a software interrupt to do this at low prio. */
     make_scan_planes(c, scanplane_buffers[idx][0],
                      scanplane_buffers[idx][1],
-                     scanplane_buffers[idx][2], 0);
+                     scanplane_buffers[idx][2]);
 
     ++c;
     if (c >= LEDS_TANG)
     {
       c = 0;
+      ++frame_counter;
+      flip_framebuf();
     }
     scan_counter = c;
 
     TIM6->SR = (uint16_t)~TIM_IT_Update;
   }
+}
+
+
+uint32_t
+get_frame_counter(void)
+{
+  return frame_counter;
 }
 
 

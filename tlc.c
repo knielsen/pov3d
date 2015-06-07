@@ -118,14 +118,13 @@ void
 make_scan_planes(uint32_t angle,
                  uint32_t * __restrict b1,
                  uint32_t * __restrict b2,
-                 uint32_t * __restrict b3,
-                 uint32_t framebuf_idx)
+                 uint32_t * __restrict b3)
 {
   uint16_t *p1 = (uint16_t *)b1;
   uint16_t *p2 = (uint16_t *)b2;
   uint16_t *p3 = (uint16_t *)b3;
   uint16_t *ps[3] = { p1, p2, p3 };
-  uint8_t (*f)[LEDS_Y*LEDS_X*LEDS_TANG][3] = &framebuf[framebuf_idx];
+  uint8_t (*f)[LEDS_Y*LEDS_X*LEDS_TANG][3] = &framebuf[1 - render_idx];
   uint32_t t, i;
 
   for (t = 0; t < 3; ++t)

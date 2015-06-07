@@ -10,7 +10,7 @@ int
 main(void)
 {
   uint32_t led_state;
-  uint32_t led_count;
+  uint32_t old_frame_counter;
 
   setup_led();
   setup_serial();
@@ -26,31 +26,32 @@ main(void)
   serial_puts("Setup done, starting loop...\r\n");
 
   led_state = 0;
-  led_count = 0;
   test_img1();
+  old_frame_counter = 42;
   for (;;)
   {
-    delay(4096*GSCLK_PERIOD*2/3);
-
-    ++led_count;
-    if (led_count >= 30000000/(4096*GSCLK_PERIOD))
+    uint32_t new_frame_counter;
+    do
     {
-      if (led_state & 1)
-      {
-        float val;
+      new_frame_counter = get_frame_counter();
+    } while (new_frame_counter == old_frame_counter);
+    old_frame_counter = new_frame_counter;
+    an_ghost(render_framebuf(), led_state, NULL);
 
-        led_on();
-        val = voltage_read();
-        println_float(val, 1, 3);
-      }
-      else
-      {
-        led_off();
-      }
+    if (led_state & 1)
+    {
+      float val;
 
-      ++led_state;
-      serial_putchar('.');
-      led_count = 0;
+      led_on();
+      val = voltage_read();
+      println_float(val, 1, 3);
     }
+    else
+    {
+      led_off();
+    }
+
+    ++led_state;
+    serial_putchar('.');
   }
 }

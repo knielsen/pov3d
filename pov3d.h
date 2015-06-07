@@ -79,6 +79,7 @@ extern uint32_t is_tlc_dma_done(void);
 
 /* timers.c */
 extern void setup_timers(void);
+extern uint32_t get_frame_counter(void);
 
 /* adc.c */
 extern void config_adc(void);
@@ -87,7 +88,7 @@ extern float voltage_read(void);
 
 /* tlc.c */
 extern void make_scan_planes(uint32_t angle, uint32_t *b1, uint32_t *b2,
-                             uint32_t *b3, uint32_t framebuf_idx);
+                             uint32_t *b3);
 extern void init_tlc(void);
 extern uint8_t (*render_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3];
 extern uint8_t (*display_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3];
@@ -95,3 +96,4 @@ extern void flip_framebuf(void);
 
 /* gfx.c */
 extern void test_img1(void);
+extern void an_ghost(frame_t *f, uint32_t c, void *st);

@@ -40,3 +40,32 @@ test_img1(void)
     }
   }
 }
+
+
+void
+an_ghost(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+{
+  uint32_t a, x;
+  float ph;
+  uint32_t c_r, c_g, c_b;
+
+  ph = (float)c * 0.47f;
+  c_r = ((c >> 7)%3 ? 0 : 252);
+  c_g = (((c >> 7)+1)%3 ? 0 : 252);
+  c_b = (((c >> 7)+2)%3 ? 0 : 252);
+
+  cls(f);
+  for (x = 0; x < LEDS_X; ++x)
+  {
+    float w = (float)x * 0.31f + ph;
+    float y = ((float)LEDS_Y / 2.0f) * (1.0f + cosf(w));
+    int32_t i_y = y;
+
+    for (a = 0; a < LEDS_TANG; ++a)
+    {
+      // ToDo: try some anti-aliasing?
+      if (i_y >= 0 && i_y < LEDS_Y)
+        setpix(f, x, i_y, a, c_r, c_g, c_b);
+    }
+  }
+}
