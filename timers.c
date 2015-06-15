@@ -154,9 +154,19 @@ get_frame_counter(void)
 }
 
 
+static void
+setup_systick(void)
+{
+  SysTick->LOAD = 0xffffff;
+  SysTick->VAL = 0;
+  SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk;
+}
+
+
 void
 setup_timers(void)
 {
+  setup_systick();
   setup_gsclks();
   setup_scanplane_timer();
 }

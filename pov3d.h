@@ -80,6 +80,26 @@ extern uint32_t is_tlc_dma_done(void);
 /* timers.c */
 extern void setup_timers(void);
 extern uint32_t get_frame_counter(void);
+extern void tlc_show_time_stat(void);
+static inline uint32_t
+get_time(void)
+{
+  return SysTick->VAL;
+}
+static inline uint32_t
+calc_time_from_val(uint32_t start, uint32_t stop)
+{
+  return (start - stop) & 0xffffff;
+}
+
+
+static inline uint32_t
+calc_time(uint32_t start)
+{
+  uint32_t stop = get_time();
+  return calc_time_from_val(start, stop);
+}
+
 
 /* adc.c */
 extern void config_adc(void);
