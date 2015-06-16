@@ -120,7 +120,7 @@ print_uint32_hex(uint32_t val)
 }
 
 
-static void
+void
 float_to_str(char *buf, float f, uint32_t dig_before, uint32_t dig_after)
 {
   float a;

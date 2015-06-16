@@ -52,6 +52,9 @@ typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
 #define GSCLK_PERIOD 4
 
 
+#define F_PI 3.141592654f
+
+
 /* misc.c */
 extern void delay(__IO uint32_t nCount);
 
@@ -68,6 +71,8 @@ extern void serial_output_hexbyte(uint8_t byte);
 extern void println_uint32(uint32_t val);
 extern void println_int32(int32_t val);
 extern void print_uint32_hex(uint32_t val);
+extern void float_to_str(char *buf, float f,
+                         uint32_t dig_before, uint32_t dig_after);
 extern void println_float(float f, uint32_t dig_before, uint32_t dig_after);
 extern void serial_dump_buf(uint8_t *buf, uint32_t len);
 
@@ -117,3 +122,7 @@ extern void flip_framebuf(void);
 /* gfx.c */
 extern void test_img1(void);
 extern void an_ghost(frame_t *f, uint32_t c, void *st);
+extern void an_supply_voltage(frame_t *f, uint32_t c, void *st);
+
+/* font_tonc.c */
+extern const uint8_t tonc_font[8*96];

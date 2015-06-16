@@ -36,7 +36,11 @@ main(void)
       new_frame_counter = get_frame_counter();
     } while (new_frame_counter == old_frame_counter);
     old_frame_counter = new_frame_counter;
-    an_ghost(render_framebuf(), led_state, NULL);
+
+    if ((led_state % 512) < 256)
+      an_supply_voltage(render_framebuf(), led_state, NULL);
+    else
+      an_ghost(render_framebuf(), led_state, NULL);
 
     if (led_state & 1)
     {

@@ -404,7 +404,7 @@ setup_tlc5955(void (*latch_func)(void),
     DC=0 is 26.2% ->0.5 mA.
     Should be safe even for USB usage.
   */
-  fill_tlc5955_control_latch(databuf, 0, 0, 4);
+  fill_tlc5955_control_latch(databuf, 0, 50, 4);
   serial_puts("Sending control register data to TLC5955:\r\n");
   serial_dump_buf(databuf, sizeof(databuf));
   (*dma_func)(databuf, inbuf, sizeof(databuf));

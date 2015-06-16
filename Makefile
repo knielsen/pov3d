@@ -22,7 +22,7 @@ STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
 vpath %.c $(STM_SRC)
 
 # My source file
-SRCS   = main.c led.c dbg.c spi.c timers.c adc.c tlc.c my_misc.c gfx.c
+SRCS   = main.c led.c dbg.c spi.c timers.c adc.c tlc.c my_misc.c gfx.c font_tonc.c
 
 # Contains initialisation code and must be compiled into
 # our project. This file is in the current directory and
