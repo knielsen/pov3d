@@ -20,6 +20,7 @@ for $i (-3.5,-2.5,-1.5,-0.5,0.5,1.5,2.5,3.5) {
     $a = rad2deg(atan2($y, $x));
     printf "%4.1f\t", $a if $mode == 1;
     printf "%.7ff, ", (180+$a)/360 if $mode == 2;
+    printf "%5.2f,\t", sqrt($x**2+$y**2) if $mode == 3;
   }
   print "\n";
 }

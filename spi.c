@@ -339,16 +339,36 @@ shift_buf_7_bits(uint8_t *buf, uint32_t len)
 }
 
 
+/*
+  Some possible MC/BC combinations:
+
+    MC=2, BC=0 -> 1.12 mA max.
+    TLC5955 datasheet says that current at max. DC should not be lower than
+    1 mA, so this should be minimal configuration.
+
+    MC=4, BC=0..127 -> 1.91 .. 19.1 mA.
+*/
 static void
 fill_tlc5955_control_latch(uint8_t *buf,
-                           uint32_t dc_val, uint32_t bc_val, uint32_t mc_val)
+                           uint32_t tlc_idx, uint32_t bc_val, uint32_t mc_val)
 {
   uint32_t pos = 0;
   uint32_t i;
+  float max_dist = led_distance_to_center_xy(6,3);
 
   memset(buf, 0, 97);
   for (i = 0; i < 48; ++i)
-    add_bits(buf, 97, dc_val, 7, &pos);
+  {
+    uint32_t led = i/3;
+    uint32_t dc_adj;
+    float dist = led_distance_to_center_tlc(tlc_idx, led);
+    float dc_fact = dist / max_dist;
+    /* Minimum brightness @ DC=0 is 26.2%. */
+    if (dc_fact < 0.262f)
+      dc_fact = 0.262f;
+    dc_adj = (uint32_t)(0.5f + 127.0f * (dc_fact - 0.262f)/(1.0f - 0.262f));
+    add_bits(buf, 97, dc_adj, 7, &pos);
+  }
   for (i = 0; i < 3; ++i)
     add_bits(buf, 97, mc_val, 3, &pos);
   for (i = 0; i < 3; ++i)
@@ -393,7 +413,7 @@ fill_tlc5955_gs_latch(uint8_t *buf, uint32_t max_gs)
 
 
 static void
-setup_tlc5955(void (*latch_func)(void),
+setup_tlc5955(uint32_t tlc_idx, void (*latch_func)(void),
               void (*dma_func)(uint8_t *, uint8_t *, uint32_t))
 {
   uint8_t databuf[97], inbuf[97], tmpbuf[97];
@@ -404,7 +424,7 @@ setup_tlc5955(void (*latch_func)(void),
     DC=0 is 26.2% ->0.5 mA.
     Should be safe even for USB usage.
   */
-  fill_tlc5955_control_latch(databuf, 0, 50, 4);
+  fill_tlc5955_control_latch(databuf, tlc_idx, 50, 4);
   serial_puts("Sending control register data to TLC5955:\r\n");
   serial_dump_buf(databuf, sizeof(databuf));
   (*dma_func)(databuf, inbuf, sizeof(databuf));
@@ -440,9 +460,9 @@ setup_spi(void)
   setup_tlc_spi_dma();
   /* ToDo: Setup nRF. */
 
-  setup_tlc5955(tlc1_latch, dma_to_tlc1);
-  setup_tlc5955(tlc2_latch, dma_to_tlc2);
-  setup_tlc5955(tlc3_latch, dma_to_tlc3);
+  setup_tlc5955(0, tlc1_latch, dma_to_tlc1);
+  setup_tlc5955(1, tlc2_latch, dma_to_tlc2);
+  setup_tlc5955(2, tlc3_latch, dma_to_tlc3);
 }
 
 

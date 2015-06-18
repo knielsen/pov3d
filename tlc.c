@@ -81,6 +81,23 @@ static uint16_t led_angles[3][16];
 
 
 /*
+  Mapping from (Y+X*8) to distance-to-center. 0.0f for a non-present LED.
+  No SRAM version, as we do not need speed for lookups - it is only used
+  to adjust DC value to correct brightness for longer sweeps of outer LEDs.
+*/
+static const float led_center_distances_flash[7*8] = {
+   0.0f,   0.0f,  25.19,  30.69,  36.19,  41.69,   0.0f,
+   0.0f,  19.69,  25.19,  30.69,  36.19,  41.69,  47.19,
+  14.19,  19.69,  25.19,  30.69,  36.19,  41.69,  47.19,
+  14.19,  19.69,  25.19,  30.69,  36.19,  41.69,  47.19,
+  14.19,  19.69,  25.19,  30.69,  36.19,  41.69,  47.19,
+  14.19,  19.69,  25.19,  30.69,  36.19,  41.69,  47.19,
+   0.0f,  19.69,  25.19,  30.69,  36.19,  41.69,  47.19,
+   0.0f,   0.0f,  25.19,  30.69,  36.19,  41.69,   0.0f
+};
+
+
+/*
   Table mapping inverse LED number to offset (Y+8*X) into scan plane.
   This gives a way to go from TLC index (order of shift-out) to position in
   scan plane (or led_angles_flash[] array).
@@ -184,6 +201,20 @@ init_tlc(void)
       led_angles[j][i] = (uint16_t)((float)LEDS_TANG * angle);
     }
   }
+}
+
+
+float
+led_distance_to_center_xy(uint32_t x, uint32_t y)
+{
+  return led_center_distances_flash[y+x*8];
+}
+
+
+float
+led_distance_to_center_tlc(uint32_t tlc, uint32_t output)
+{
+  return led_center_distances_flash[tlc_map_flash[tlc][output]];
 }
 
 

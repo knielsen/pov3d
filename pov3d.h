@@ -115,6 +115,8 @@ extern float voltage_read(void);
 extern void make_scan_planes(uint32_t angle, uint32_t *b1, uint32_t *b2,
                              uint32_t *b3);
 extern void init_tlc(void);
+extern float led_distance_to_center_xy(uint32_t x, uint32_t y);
+extern float led_distance_to_center_tlc(uint32_t tlc, uint32_t output);
 extern uint8_t (*render_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3];
 extern uint8_t (*display_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3];
 extern void flip_framebuf(void);
