@@ -421,8 +421,8 @@ setup_tlc5955(uint32_t tlc_idx, void (*latch_func)(void),
   /*
     MC=4 is 19.1 mA max.
     BC=0 is 10% -> 1.91 mA.
-    DC=0 is 26.2% ->0.5 mA.
-    Should be safe even for USB usage.
+    BC=127 is 100% -> 19.1 mA.
+    Should be safe even for USB usage, or can use MC=2 BC=0 for 1.12 mA.
   */
   fill_tlc5955_control_latch(databuf, tlc_idx, 50, 4);
   serial_puts("Sending control register data to TLC5955:\r\n");
