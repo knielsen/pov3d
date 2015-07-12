@@ -2,9 +2,6 @@
 
 #include "pov3d.h"
 
-/* This is apparently needed for libc/libm (eg. powf()). */
-int __errno;
-
 
 int
 main(void)

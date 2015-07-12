@@ -557,6 +557,14 @@ void SystemInit_ExtMemCtl(void)
 #endif /* DATA_IN_ExtSRAM */
 
 
+/* Disable use of static constructors, called from ST startup code. */
+void
+__libc_init_array(void)
+{
+  /* Nothing. */
+}
+
+
 /**
   * @}
   */
