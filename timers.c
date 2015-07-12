@@ -8,7 +8,7 @@
   This is obtained with a PWM period of 4.
 */
 
-#include "pov3d.h"
+#include "ledtorus.h"
 
 
 static volatile uint32_t scan_counter;

@@ -1,4 +1,4 @@
-#include <pov3d.h>
+#include <ledtorus.h>
 
 /*
   Gamma correction, mapping frame buffer intensity 0..255 into

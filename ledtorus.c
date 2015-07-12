@@ -1,6 +1,6 @@
 /* POV3D. */
 
-#include "pov3d.h"
+#include "ledtorus.h"
 
 
 int

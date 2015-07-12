@@ -2,7 +2,7 @@
   Serial debug output, on PB10.
 */
 
-#include "pov3d.h"
+#include "ledtorus.h"
 
 void
 setup_serial(void)

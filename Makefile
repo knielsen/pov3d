@@ -1,4 +1,4 @@
-TARGET=pov3d
+TARGET=ledtorus
 
 OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o gfx.o font_tonc.o
 
@@ -46,7 +46,7 @@ $(TARGET).bin: $(TARGET).elf
 $(TARGET).elf: $(OBJS) $(STM_OBJS) $(STARTUP_OBJ) $(LINKSCRIPT)
 	$(LD) $(ARCH_FLAGS) -T $(LINKSCRIPT) -o $@ $(STARTUP_OBJ) $(OBJS) $(STM_OBJS) $(LDFLAGS)
 
-$(TARGET).o: $(TARGET).c pov3d.h
+$(TARGET).o: $(TARGET).c ledtorus.h
 
 $(STARTUP_OBJ): $(STARTUP_SRC)
 	$(CC) $(CFLAGS) -c $< -o $@
