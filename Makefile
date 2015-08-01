@@ -51,7 +51,7 @@ $(TARGET).o: $(TARGET).c ledtorus.h
 $(STARTUP_OBJ): $(STARTUP_SRC)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%.o: %.c
+%.o: %.c ledtorus.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 %.bin: %.elf

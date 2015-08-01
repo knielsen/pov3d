@@ -199,7 +199,7 @@ an_ghost(frame_t *f, uint32_t c, void *st __attribute__((unused)))
   float ph;
   uint32_t skip;
 
-  ph = (float)c * 0.29f;
+  ph = (float)c * 0.22f;
   skip = (c % 128) < 64;
 
   cls(f);
@@ -251,9 +251,9 @@ an_supply_voltage(frame_t *f, uint32_t c, void *st __attribute__((unused)))
   p = my_str_mk(p+strlen(p), "V");
   c2 = c % 270;
   if (c2 < 72)
-    stretch = 2.5f - 0.4f * sinf((float)c2*(2.0f*F_PI/72.0f));
+    stretch = 1.4f - 0.4f * cosf((float)c2*(2.0f*F_PI/72.0f));
   else
-    stretch = 2.5f;
+    stretch = 1.0f;
   a = (2*c)%LEDS_TANG;
   g_text(f, buf, 4, a, 255, 100, 20, stretch);
 }
