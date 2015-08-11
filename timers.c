@@ -80,7 +80,7 @@ setup_scanplane_timer(void)
   TIM_UpdateDisableConfig(TIM6, DISABLE);
 
   NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
-  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 10;
+  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 4;
   NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
   NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
   NVIC_InitStructure.NVIC_IRQChannel = TIM6_DAC_IRQn;
@@ -88,6 +88,22 @@ setup_scanplane_timer(void)
   TIM_ITConfig(TIM6, TIM_IT_Update, ENABLE);
 
   TIM_Cmd(TIM6, ENABLE);
+}
+
+
+static void
+trigger_softint(void)
+{
+  /*
+    Clear the pending interrupt bit before triggering the software interrupt.
+    The write to SWIER only triggers an interrupt if it does not already
+    have the bit set.
+    Testing showed that the bit had to be cleared at least once at setup, or
+    the interrupt was never triggered. Probably resetting it here again is
+    not necessary, but better safe than sorry.
+  */
+  EXTI->PR = EXTI_Line0;
+  EXTI->SWIER = EXTI_Line0;
 }
 
 
@@ -99,7 +115,6 @@ void TIM6_DAC_IRQHandler(void)
 {
   if (TIM6->SR & TIM_IT_Update)
   {
-    uint32_t c;
     uint8_t idx;
     uint8_t ic;
 
@@ -126,13 +141,35 @@ void TIM6_DAC_IRQHandler(void)
     }
     idx = 1 - idx;
     scanbuffer_idx = idx;
-    c = scan_counter;
 
-    /* ToDo: Just trigger a software interrupt to do this at low prio. */
+    /*
+      Now do the rest of the processing (preparation of the next scanplane to
+      shift out to TLCs) in a low-priority software interrupt, allowing more
+      time-critical stuff to interrupt it.
+    */
+    trigger_softint();
+
+    TIM6->SR = (uint16_t)~TIM_IT_Update;
+  }
+}
+
+
+/*
+  Handler for software interrupt.
+  This runs at a low priority, and handles generating the next scan plane.
+  This allows time-critical processing to interrupt this long-running
+  operation.
+*/
+void
+EXTI0_IRQHandler(void)
+{
+  if (EXTI->PR & EXTI_Line0) {
+    uint32_t c = scan_counter;
+    uint8_t idx = scanbuffer_idx;
+
     make_scan_planes(c, scanplane_buffers[idx][0],
                      scanplane_buffers[idx][1],
                      scanplane_buffers[idx][2]);
-
     ++c;
     if (c >= LEDS_TANG)
     {
@@ -142,7 +179,8 @@ void TIM6_DAC_IRQHandler(void)
     }
     scan_counter = c;
 
-    TIM6->SR = (uint16_t)~TIM_IT_Update;
+    /* Clear the pending interrupt event. */
+    EXTI->PR = EXTI_Line0;
   }
 }
 
@@ -163,10 +201,42 @@ setup_systick(void)
 }
 
 
+/*
+  Configure a software interrupt to handle the long-running generation of
+  next scan plane at a low priority.
+*/
+static void
+setup_softint(void)
+{
+  union {
+    NVIC_InitTypeDef NVIC_InitStruct;
+  } u;
+
+  /* Software interrupt on EXTI0 (no GPIO triggering). */
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+  /* Disable events on EXTI0. */
+  EXTI->EMR &= ~EXTI_Line0;
+  /* Disable GPIO triggers. */
+  EXTI->RTSR &= ~EXTI_Line0;
+  EXTI->FTSR &= ~EXTI_Line0;
+  /* Enable interrupts on EXTI0. */
+  EXTI->IMR |= EXTI_Line0;
+
+  /* Clear any pending interrupt before enabling. */
+  EXTI->PR = EXTI_Line0;
+  u.NVIC_InitStruct.NVIC_IRQChannel = EXTI0_IRQn;
+  u.NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 15;
+  u.NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
+  u.NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
+  NVIC_Init(&u.NVIC_InitStruct);
+}
+
+
 void
 setup_timers(void)
 {
   setup_systick();
   setup_gsclks();
   setup_scanplane_timer();
+  setup_softint();
 }

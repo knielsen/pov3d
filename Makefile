@@ -13,6 +13,8 @@ STM_OBJS  += stm32f4xx_spi.o
 STM_OBJS  += stm32f4xx_tim.o
 STM_OBJS  += stm32f4xx_dma.o
 STM_OBJS  += stm32f4xx_adc.o
+STM_OBJS  += stm32f4xx_syscfg.o
+STM_OBJS  += stm32f4xx_exti.o
 STM_OBJS  += misc.o
 
 INC_DIRS  = $(STM_DIR)/Utilities/STM32F4-Discovery
