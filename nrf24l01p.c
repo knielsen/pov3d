@@ -200,20 +200,10 @@ bitswap_byte(uint8_t in)
   complete the command.
 */
 static void
-ssi_cmd_start(volatile uint8_t *recvbuf, volatile uint8_t *sendbuf, uint32_t len)
+ssi_cmd_start(volatile uint8_t *recvbuf, volatile const uint8_t *sendbuf, uint32_t len)
 {
-  uint32_t i;
-
   /* Take CSN low to initiate transfer. */
   csn_low();
-
-  /*
-    Note that nRF SPI uses most-significant-bit first, while USART works
-    with least-significant-bit first. So we need to bit-swap all the
-    bytes sent and received.
-  */
-  for (i = 0; i < len; ++i)
-    sendbuf[i] = bitswap_byte(sendbuf[i]);
 
   DMA2_Stream2->M0AR = (uint32_t)recvbuf;
   DMA2_Stream2->NDTR = len;
@@ -251,6 +241,9 @@ EXTI3_IRQHandler(void)
   if (EXTI->PR & EXTI_Line3) {
     // ToDo ... handle nrf IRQ.
 
+    serial_puts("\r\nHulubulu!!?!\r\n");
+    for (;;)
+      ;
     /* Clear the pending interrupt event. */
     EXTI->PR = EXTI_Line3;
   }
@@ -278,15 +271,19 @@ ssi_cmd_blocking(uint8_t *recvbuf, uint8_t *sendbuf, uint32_t len)
 {
   uint32_t i;
 
-  nrf_cmd_done = 0;
-  ssi_cmd_start(nrf_recv_buffer, sendbuf, len);
-  while (!nrf_cmd_done)
-    ;
   /*
     Note that nRF SPI uses most-significant-bit first, while USART works
     with least-significant-bit first. So we need to bit-swap all the
     bytes sent and received.
   */
+  for (i = 0; i < len; ++i)
+    sendbuf[i] = bitswap_byte(sendbuf[i]);
+
+  nrf_cmd_done = 0;
+  ssi_cmd_start(nrf_recv_buffer, sendbuf, len);
+  while (!nrf_cmd_done)
+    ;
+
   for (i = 0; i < len; ++i)
     recvbuf[i] = bitswap_byte(nrf_recv_buffer[i]);
 }
@@ -315,10 +312,88 @@ nrf_read_reg_blocking(uint8_t reg, uint8_t *status_ptr)
 }
 
 
+static void
+nrf_write_reg_n_blocking(uint8_t reg, const uint8_t *data, uint32_t len)
+{
+  uint8_t sendbuf[6], recvbuf[6];
+  if (len > 5)
+    len = 5;
+  sendbuf[0] = nRF_W_REGISTER | reg;
+  memcpy(&sendbuf[1], data, len);
+  ssi_cmd_blocking(recvbuf, sendbuf, len+1);
+}
+
+
+static void
+nrf_write_reg_blocking(uint8_t reg, uint8_t val)
+{
+  nrf_write_reg_n_blocking(reg, &val, 1);
+}
+
+
+static void
+nrf_flush_tx()
+{
+  uint8_t cmd = nRF_FLUSH_TX;
+  uint8_t status;
+  ssi_cmd_blocking(&status, &cmd, 1);
+}
+
+
+static void
+nrf_flush_rx()
+{
+  uint8_t cmd = nRF_FLUSH_RX;
+  uint8_t status;
+  ssi_cmd_blocking(&status, &cmd, 1);
+}
+
+
+static void
+nrf_init_config(uint32_t channel, uint32_t power)
+{
+  static const uint8_t addr[3] = { 0xe7, 0xe7, 0xe7 };
+
+  nrf_write_reg_blocking(nRF_CONFIG, nRF_PRIM_RX | nRF_MASK_TX_DS |
+                nRF_MASK_MAX_RT|nRF_EN_CRC|nRF_CRCO|nRF_PWR_UP);
+  /* Disable auto-ack, saving 9 bits/packet. Else 0x3f. */
+  nrf_write_reg_blocking(nRF_EN_AA, 0);
+  /* Enable only pipe 0. */
+  nrf_write_reg_blocking(nRF_EN_RXADDR, nRF_ERX_P0);
+  /* 3 byte adresses. */
+  nrf_write_reg_blocking(nRF_SETUP_AW, nRF_AW_3BYTES);
+  /* Disable auto retransmit. */
+  nrf_write_reg_blocking(nRF_SETUP_RETR, 0);
+  nrf_write_reg_blocking(nRF_RF_CH, channel);
+  /* Use 2Mbps, and set transmit power. */
+  nrf_write_reg_blocking(nRF_RF_SETUP, nRF_RF_DR_HIGH | power);
+  nrf_write_reg_n_blocking(nRF_RX_ADDR_P0, addr, 3);
+  nrf_write_reg_n_blocking(nRF_TX_ADDR, addr, 3);
+  /* Set payload size for pipe 0. */
+  nrf_write_reg_blocking(nRF_RX_PW_P0, 32);
+  /* Disable pipe 1-5. */
+  nrf_write_reg_blocking(nRF_RX_PW_P1, 0);
+  /* Disable dynamic payload length. */
+  nrf_write_reg_blocking(nRF_DYNDP, 0);
+  /* Allow disabling acks. */
+  nrf_write_reg_blocking(nRF_FEATURE, nRF_EN_DYN_ACK);
+
+  /* Clear out all FIFOs. */
+  nrf_flush_tx();
+  nrf_flush_rx();
+  /* Clear the IRQ bits in STATUS register. */
+  nrf_write_reg_blocking(nRF_STATUS, nRF_RX_DR|nRF_TX_DS|nRF_MAX_RT);
+}
+
+
 void
 setup_nrf24l01p(void)
 {
   setup_nrf_spi();
+  /* nRF24L01+ datasheet says to wait 100msec for bootup. */
+  delay(MCU_HZ/3/10);
+  nrf_init_config(2, nRF_RF_PWR_0DBM);
+
 
   /* As a test, let's try read a register. */
   {
@@ -330,6 +405,9 @@ setup_nrf24l01p(void)
     serial_puts(" status=0x");
     serial_output_hexbyte(status);
     serial_puts("\r\n");
+
+    /* Assert CE to enter receive mode. */
+    ce_high();
     for (;;)
       ;
   }

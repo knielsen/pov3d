@@ -55,6 +55,13 @@ typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
 #define F_PI 3.141592654f
 
 
+/*
+  Note that changing frequence requires more code changes than just changing
+  this constant.
+*/
+#define MCU_HZ 168000000
+
+
 /* misc.c */
 extern void delay(__IO uint32_t nCount);
 
