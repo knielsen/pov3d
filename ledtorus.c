@@ -20,6 +20,8 @@ main(void)
   config_adc();
   serial_puts("Starting timers...\r\n");
   setup_timers();
+  serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
+  setup_nrf24l01p();
   serial_puts("Setup done, starting loop...\r\n");
 
   led_state = 0;

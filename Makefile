@@ -1,6 +1,6 @@
 TARGET=ledtorus
 
-OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o gfx.o font_tonc.o
+OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o gfx.o font_tonc.o nrf24l01p.o
 
 STM_DIR=/home/knielsen/devel/study/stm32f4/STM32F4-Discovery_FW_V1.1.0
 STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
@@ -55,6 +55,8 @@ $(STARTUP_OBJ): $(STARTUP_SRC)
 
 %.o: %.c ledtorus.h
 	$(CC) $(CFLAGS) -c $< -o $@
+
+nrf24l01p.o: nrf24l01p.h
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
