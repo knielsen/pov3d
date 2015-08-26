@@ -192,6 +192,10 @@ bitswap_byte(uint8_t in)
 }
 
 
+static uint8_t nrf_send_buffer[33];
+static uint8_t nrf_recv_buffer[33];
+static volatile uint8_t nrf_cmd_running = 0;
+
 /*
   This function starts DMA to issue an nRF24L01+ command.
   The DMA transfer will run in the background. Interrupts should be used to
@@ -200,14 +204,14 @@ bitswap_byte(uint8_t in)
   complete the command.
 */
 static void
-ssi_cmd_start(volatile uint8_t *recvbuf, volatile const uint8_t *sendbuf, uint32_t len)
+ssi_cmd_start(uint32_t len)
 {
   /* Take CSN low to initiate transfer. */
   csn_low();
 
-  DMA2_Stream2->M0AR = (uint32_t)recvbuf;
+  DMA2_Stream2->M0AR = (uint32_t)(&nrf_recv_buffer[0]);
   DMA2_Stream2->NDTR = len;
-  DMA2_Stream7->M0AR = (uint32_t)sendbuf;
+  DMA2_Stream7->M0AR = (uint32_t)(&nrf_send_buffer[0]);
   DMA2_Stream7->NDTR = len;
   /* Clear DMA transfer complete flags. */
   DMA2->LIFCR = DMA_FLAG_TCIF2 & 0x0F7D0F7D;
@@ -250,24 +254,36 @@ EXTI3_IRQHandler(void)
 }
 
 
-static volatile uint8_t nrf_send_buffer[32];
-static volatile uint8_t nrf_recv_buffer[32];
-static volatile uint8_t nrf_cmd_done = 0;
+/*
+  Handler for SPI Rx DMA completed interrupt, serving the nRF24L01+.
 
+  This interrupt is triggered when the transfer to the nRF24L01+ is
+  completed, indicating completion of the corresponding command/request.
+*/
 void
 DMA2_Stream2_IRQHandler(void)
 {
   if (DMA2->LISR & 0x00200000)
   {
-    ssi_cmd_transfer_done();
-    nrf_cmd_done = 1;
+    /*
+      Clear the interrupt request.
+      Do this early, so that, if we start another DMA request from within
+      the context of this interrupt invocation, and somehow get delayed enough
+      that this second DMA can complete before we complete the interrupt
+      handler, we will not lose the interrupt of the second DMA request.
+    */
     DMA2->LIFCR = 0x00200000;
+    if (nrf_cmd_running)
+    {
+      ssi_cmd_transfer_done();
+      nrf_cmd_running = 0;
+    }
   }
 }
 
 
 static void
-ssi_cmd_blocking(uint8_t *recvbuf, uint8_t *sendbuf, uint32_t len)
+ssi_cmd_blocking(uint8_t *recvbuf, const uint8_t *sendbuf, uint32_t len)
 {
   uint32_t i;
 
@@ -277,11 +293,11 @@ ssi_cmd_blocking(uint8_t *recvbuf, uint8_t *sendbuf, uint32_t len)
     bytes sent and received.
   */
   for (i = 0; i < len; ++i)
-    sendbuf[i] = bitswap_byte(sendbuf[i]);
+    nrf_send_buffer[i] = bitswap_byte(sendbuf[i]);
 
-  nrf_cmd_done = 0;
-  ssi_cmd_start(nrf_recv_buffer, sendbuf, len);
-  while (!nrf_cmd_done)
+  nrf_cmd_running = 1;
+  ssi_cmd_start(len);
+  while (nrf_cmd_running)
     ;
 
   for (i = 0; i < len; ++i)
