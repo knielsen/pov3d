@@ -12,6 +12,34 @@
 #define POV_SUBCMD_STATUS_REPLY 240
 
 
+static void
+nrf_irq_enable(void)
+{
+  EXTI->IMR |= EXTI_Line3;
+}
+
+
+static void
+nrf_irq_disable(void)
+{
+  EXTI->IMR &= ~EXTI_Line3;
+}
+
+
+static void
+nrf_irq_clear(void)
+{
+  EXTI->PR = EXTI_Line3;
+}
+
+
+static uint32_t
+nrf_irq_pinstatus(void)
+{
+  return GPIOC->IDR & GPIO_Pin_3;
+}
+
+
 /*
   Setup SPI communication for nRF42L01+ on USART1 in synchronous mode.
 
@@ -146,9 +174,16 @@ setup_nrf_spi(void)
   u.EXTI_InitStruct.EXTI_Mode = EXTI_Mode_Interrupt;
   u.EXTI_InitStruct.EXTI_Trigger = EXTI_Trigger_Falling;
   EXTI_Init(&u.EXTI_InitStruct);
+  /*
+    We only want to configure the interrupt here, not yet enable it. But the
+    ST libraries seem to not have a way to configure the interrupt without
+    also enabling it. So let's just configure it with the library routine
+    and immediately disable it.
+  */
+  nrf_irq_disable();
 
-  /* Clear any pending interrupt before enabling. */
-  EXTI->PR = EXTI_Line3;
+  /* Clear any pending interrupt before enabling in NVIC. */
+  nrf_irq_clear();
   u.NVIC_InitStruct.NVIC_IRQChannel = EXTI3_IRQn;
   u.NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 10;
   u.NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
@@ -195,6 +230,8 @@ bitswap_byte(uint8_t in)
 static uint8_t nrf_send_buffer[33];
 static uint8_t nrf_recv_buffer[33];
 static volatile uint8_t nrf_cmd_running = 0;
+static volatile uint8_t receive_multi_running = 0;
+static volatile uint8_t nrf_idle = 0;
 
 /*
   This function starts DMA to issue an nRF24L01+ command.
@@ -239,17 +276,18 @@ ssi_cmd_transfer_done()
 }
 
 
+/* Forward declaration. */
+static uint32_t nrf_async_receive_multi_cont();
+
 void
 EXTI3_IRQHandler(void)
 {
   if (EXTI->PR & EXTI_Line3) {
-    // ToDo ... handle nrf IRQ.
-
-    serial_puts("\r\nHulubulu!!?!\r\n");
-    for (;;)
-      ;
     /* Clear the pending interrupt event. */
-    EXTI->PR = EXTI_Line3;
+    nrf_irq_clear();
+
+    if (receive_multi_running)
+      nrf_idle = nrf_async_receive_multi_cont();
   }
 }
 
@@ -277,6 +315,8 @@ DMA2_Stream2_IRQHandler(void)
     {
       ssi_cmd_transfer_done();
       nrf_cmd_running = 0;
+      if (receive_multi_running)
+        nrf_idle = nrf_async_receive_multi_cont();
     }
   }
 }
@@ -317,6 +357,7 @@ nrf_read_reg_n_blocking(uint8_t reg, uint8_t *out, uint32_t len)
 }
 
 
+__attribute__((unused))
 static uint8_t
 nrf_read_reg_blocking(uint8_t reg, uint8_t *status_ptr)
 {
@@ -402,6 +443,197 @@ nrf_init_config(uint32_t channel, uint32_t power)
 }
 
 
+/* Asynchronous SPI transfer to nRF24L01+ using DMA. */
+
+static void
+nrf_write_reg_n_start(uint8_t reg, const uint8_t *data, uint32_t len)
+{
+  uint32_t i;
+
+  if (len > 7)
+    len = 7;
+  nrf_send_buffer[0] = bitswap_byte(nRF_W_REGISTER | reg);
+  for (i = 0; i < len; ++i)
+    nrf_send_buffer[i+1] = bitswap_byte(data[i]);
+  nrf_cmd_running = 1;
+  ssi_cmd_start(len+1);
+}
+
+
+static void
+nrf_write_reg_start(uint8_t reg, uint8_t val)
+{
+  nrf_write_reg_n_start(reg, &val, 1);
+}
+
+
+static void
+nrf_read_reg_n_start(uint8_t reg, uint32_t len)
+{
+  if (len > 7)
+    len = 7;
+  nrf_send_buffer[0] = bitswap_byte(nRF_R_REGISTER | reg);
+  memset(&nrf_send_buffer[1], 0, len);
+  nrf_cmd_running = 1;
+  ssi_cmd_start(len+1);
+}
+
+
+static void
+nrf_read_reg_start(uint8_t reg)
+{
+  nrf_read_reg_n_start(reg, 1);
+}
+
+
+static void
+nrf_rcv_start(uint32_t len)
+{
+  nrf_send_buffer[0] = bitswap_byte(nRF_R_RX_PAYLOAD);
+  memset(&nrf_send_buffer[1], 0, len);
+  nrf_cmd_running = 1;
+  ssi_cmd_start(len+1);
+}
+
+
+/*
+  Continously receive packets on nRF24L01+ in receiver mode.
+
+  As packets are received, they are passed to a callback function. This
+  callback is invoked from interrupt context, so it should ideally be fairly
+  quick and has to be aware of the general interrupt caveats.
+*/
+static struct nrf_async_receive_multi {
+  void (*consumepacket)(uint8_t *, void *);
+  void *cb_data;
+  uint8_t state;
+} nrf_rcv_state;
+
+enum nrf_async_receive_multi_states {
+  ST_NRF_ARM_A1,
+  ST_NRF_ARM_A2,
+  ST_NRF_ARM_A3,
+  ST_NRF_ARM_A4
+};
+
+static void
+nrf_async_receive_multi_start(void (*consumepacket)(uint8_t *, void *),
+                              void *cb_data)
+{
+  nrf_rcv_state.consumepacket = consumepacket;
+  nrf_rcv_state.cb_data = cb_data;
+  nrf_rcv_state.state = ST_NRF_ARM_A1;
+
+  /* Assert CE to enter receive mode. */
+  ce_high();
+
+  nrf_idle = 1;
+  receive_multi_running = 1;
+
+  /*
+    Enable interrupt when the IRQ line goes low, which happens when data is
+    ready in the Rx FIFO (RX_DR).
+  */
+  nrf_irq_enable();
+}
+
+
+/*
+  Called to continue a multi-packet receive session.
+  This should be called when an event occurs, either in the form of
+  an SPI DMA completion interrupt or in the form of a GPIO interrupt on the
+  nRF24L01+ IRQ pin.
+
+  The two interrupts should be configured to have the same priority, so that
+  one of them does not attempt to pre-empt the other; that would lead to
+  nasty races.
+
+  Returns 1 if the nRF24L01+ is now idle (no packets pending in Rx FIFO), 0
+  if activity is still on-going.
+*/
+static uint32_t
+nrf_async_receive_multi_cont()
+{
+  uint32_t i;
+  uint8_t packet[32];
+  struct nrf_async_receive_multi *const a= &nrf_rcv_state;
+
+resched:
+  switch (a->state)
+  {
+  case ST_NRF_ARM_A1:
+    nrf_irq_disable();
+    /* Clear the RX_DS interrupt. */
+    nrf_write_reg_start(nRF_STATUS, nRF_RX_DR);
+    a->state = ST_NRF_ARM_A2;
+    return 0;
+
+  case ST_NRF_ARM_A2:
+    /* Read FIFO status to check if there is any data ready. */
+    nrf_read_reg_start(nRF_FIFO_STATUS);
+    a->state = ST_NRF_ARM_A3;
+    return 0;
+
+  case ST_NRF_ARM_A3:
+    if (bitswap_byte(nrf_recv_buffer[1]) & nRF_RX_EMPTY)
+    {
+      /*
+        No more packets in the Rx fifo. Enable the IRQ interrupt and wait for
+        more packets to arrive.
+      */
+      a->state = ST_NRF_ARM_A1;
+      /*
+        The nRF IRQ is level-triggered, but STM32 only has edge-triggered GPIO
+        interrupts. We handle this by first clearing any pending interrupt,
+        then checking manually the GPIO pin.
+      */
+      nrf_irq_clear();
+      nrf_irq_enable();
+      if (!nrf_irq_pinstatus())
+        goto resched;
+      return 1;
+    }
+
+    /* The Rx FIFO is non-empty, so read a packet. */
+    nrf_rcv_start(32);
+    a->state = ST_NRF_ARM_A4;
+    return 0;
+
+  case ST_NRF_ARM_A4:
+    /* Deliver the received packet to the callback. */
+    for (i = 0; i < 32; ++i)
+      packet[i] = bitswap_byte(nrf_recv_buffer[i+1]);
+    (*(a->consumepacket))(packet, a->cb_data);
+    /* Now go check if there are more packets available. */
+    a->state = ST_NRF_ARM_A2;
+    goto resched;
+
+  default:
+    /* This shouldn't really happen ... */
+    return 1;
+  }
+}
+
+
+static void
+nrf_receive_cb(uint8_t *packet, void *dummy __attribute__((unused)))
+{
+  uint8_t cmd, subcmd;
+
+  cmd = packet[0];
+  subcmd = packet[1];
+  if (cmd == POV_CMD_DEBUG)
+  {
+    if (subcmd == POV_SUBCMD_RESET_TO_BOOTLOADER)
+    {
+      /* Reset to bootloader. */
+      NVIC_SystemReset();
+      /* NotReached */
+    }
+  }
+}
+
+
 void
 setup_nrf24l01p(void)
 {
@@ -410,21 +642,6 @@ setup_nrf24l01p(void)
   delay(MCU_HZ/3/10);
   nrf_init_config(2, nRF_RF_PWR_0DBM);
 
-
-  /* As a test, let's try read a register. */
-  {
-    uint8_t val, status;
-    serial_puts("Starting nRF read...\r\n");
-    val = nrf_read_reg_blocking(nRF_CONFIG, &status);
-    serial_puts("nRF read: val=0x");
-    serial_output_hexbyte(val);
-    serial_puts(" status=0x");
-    serial_output_hexbyte(status);
-    serial_puts("\r\n");
-
-    /* Assert CE to enter receive mode. */
-    ce_high();
-    for (;;)
-      ;
-  }
+  /* Start receiving packets! */
+  nrf_async_receive_multi_start(nrf_receive_cb, NULL);
 }
