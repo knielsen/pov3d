@@ -1,6 +1,6 @@
 #include <math.h>
 #include <string.h>
-#include <stm32f4_discovery.h>
+#include <stm32f4xx.h>
 
 #define PCB_POV3D
 //#define LILLE_VIDUNDER

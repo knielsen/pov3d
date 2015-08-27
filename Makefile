@@ -2,7 +2,7 @@ TARGET=ledtorus
 
 OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o gfx.o font_tonc.o nrf24l01p.o
 
-STM_DIR=/home/knielsen/devel/study/stm32f4/STM32F4-Discovery_FW_V1.1.0
+STM_DIR=/home/knielsen/devel/study/stm32f4/STM32F4xx_DSP_StdPeriph_Lib_V1.1.0
 STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
 vpath %.c $(STM_SRC)
 STM_OBJS = system_stm32f4xx.o
@@ -17,9 +17,8 @@ STM_OBJS  += stm32f4xx_syscfg.o
 STM_OBJS  += stm32f4xx_exti.o
 STM_OBJS  += misc.o
 
-INC_DIRS  = $(STM_DIR)/Utilities/STM32F4-Discovery
 INC_DIRS += $(STM_DIR)/Libraries/CMSIS/Include
-INC_DIRS += $(STM_DIR)/Libraries/CMSIS/ST/STM32F4xx/Include
+INC_DIRS += $(STM_DIR)/Libraries/CMSIS/Device/ST/STM32F4xx/Include
 INC_DIRS += $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/inc
 INC_DIRS += .
 INC = $(addprefix -I,$(INC_DIRS))
@@ -30,12 +29,12 @@ OBJCOPY=arm-none-eabi-objcopy
 
 
 STARTUP_OBJ=startup_stm32f4xx.o
-STARTUP_SRC=$(STM_DIR)/Libraries/CMSIS/ST/STM32F4xx/Source/Templates/TrueSTUDIO/startup_stm32f4xx.s
+STARTUP_SRC=$(STM_DIR)/Libraries/CMSIS/Device/ST/STM32F4xx/Source/Templates/TrueSTUDIO/startup_stm32f40xx.s
 LINKSCRIPT=$(TARGET).ld
 
 ARCH_FLAGS=-mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -ffunction-sections -fdata-sections -ffast-math
 
-CFLAGS=-ggdb -O2 -std=c99 -Wall -Wextra -Warray-bounds $(ARCH_FLAGS) $(INC) -DUSE_STDPERIPH_DRIVER
+CFLAGS=-ggdb -O2 -std=c99 -Wall -Wextra -Warray-bounds $(ARCH_FLAGS) $(INC) -DSTM32F4XX -DUSE_STDPERIPH_DRIVER
 LDFLAGS=-Wl,--gc-sections -lm
 
 
