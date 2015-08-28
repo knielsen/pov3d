@@ -2,7 +2,7 @@ TARGET=ledtorus
 
 OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o gfx.o font_tonc.o nrf24l01p.o
 
-STM_DIR=/home/knielsen/devel/study/stm32f4/STM32F4xx_DSP_StdPeriph_Lib_V1.1.0
+STM_DIR=/home/knielsen/devel/study/stm32f4/STM32F4xx_DSP_StdPeriph_Lib_V1.5.1
 STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
 vpath %.c $(STM_SRC)
 STM_OBJS = system_stm32f4xx.o
@@ -34,7 +34,7 @@ LINKSCRIPT=$(TARGET).ld
 
 ARCH_FLAGS=-mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -ffunction-sections -fdata-sections -ffast-math
 
-CFLAGS=-ggdb -O2 -std=c99 -Wall -Wextra -Warray-bounds $(ARCH_FLAGS) $(INC) -DSTM32F4XX -DUSE_STDPERIPH_DRIVER
+CFLAGS=-ggdb -O2 -std=c99 -Wall -Wextra -Warray-bounds $(ARCH_FLAGS) $(INC) -DSTM32F40XX -DUSE_STDPERIPH_DRIVER
 LDFLAGS=-Wl,--gc-sections -lm
 
 
