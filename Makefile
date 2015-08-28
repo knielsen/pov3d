@@ -67,7 +67,7 @@ clean:
 	rm -f $(OBJS) $(STM_OBJS) $(TARGET).elf $(TARGET).bin $(STARTUP_OBJ)
 
 tty:
-	stty -F/dev/ttyACM1 raw -echo -hup cs8 -parenb -cstopb 500000
+	stty -F/dev/stellaris raw -echo -hup cs8 -parenb -cstopb 115200
 
 cat:
-	cat /dev/ttyACM1
+	cat /dev/stellaris
