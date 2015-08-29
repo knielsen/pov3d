@@ -50,7 +50,7 @@
 #include "stm32f4xx_rcc.h"
 // #include "stm32f4xx_rng.h"
 // #include "stm32f4xx_rtc.h"
-// #include "stm32f4xx_sdio.h"
+#include "stm32f4xx_sdio.h"
 #include "stm32f4xx_spi.h"
 #include "stm32f4xx_syscfg.h"
 #include "stm32f4xx_tim.h"
@@ -65,6 +65,65 @@
    should be set to the value of the external clock source, else, if no external 
    clock is used, keep this define commented */
 /*#define I2S_EXTERNAL_CLOCK_VAL   12288000 */ /* Value of the external clock in Hz */
+
+
+/* Configuration for SDIO driver. */
+
+/* Card detect pin on PA15. */
+#define SD_DETECT_PIN                    GPIO_Pin_15
+#define SD_DETECT_GPIO_PORT              GPIOA
+#define SD_DETECT_GPIO_CLK               RCC_AHB1Periph_GPIOA
+
+//#define SDIO_FIFO_ADDRESS                ((uint32_t)0x40012C80)
+#define SDIO_FIFO_ADDRESS                ((uint32_t)&SDIO->FIFO)
+/**
+  * @brief  SDIO Intialization Frequency (400KHz max)
+  * Obtained from 48 MHz PLL output, result is 48MHz/(SDIO_INIT_CLK_DIV+2)
+  */
+#define SDIO_INIT_CLK_DIV                ((uint8_t)0x76) /* 400kHz */
+/**
+  * @brief  SDIO Data Transfer Frequency (25MHz max)
+  * Obtained from 48 MHz PLL output, result is 48MHz/(SDIO_TRANSFER_CLK_DIV+2)
+  */
+#define SDIO_TRANSFER_CLK_DIV            ((uint8_t)0) /* 24 MHz */
+
+#define SD_SDIO_DMA                   DMA2
+#define SD_SDIO_DMA_CLK               RCC_AHB1Periph_DMA2
+
+//#define SD_SDIO_DMA_STREAM3	          3
+#define SD_SDIO_DMA_STREAM6           6
+
+#ifdef SD_SDIO_DMA_STREAM3
+ #define SD_SDIO_DMA_STREAM            DMA2_Stream3
+ #define SD_SDIO_DMA_CHANNEL           DMA_Channel_4
+ #define SD_SDIO_DMA_FLAG_FEIF         DMA_FLAG_FEIF3
+ #define SD_SDIO_DMA_FLAG_DMEIF        DMA_FLAG_DMEIF3
+ #define SD_SDIO_DMA_FLAG_TEIF         DMA_FLAG_TEIF3
+ #define SD_SDIO_DMA_FLAG_HTIF         DMA_FLAG_HTIF3
+ #define SD_SDIO_DMA_FLAG_TCIF         DMA_FLAG_TCIF3
+ #define SD_SDIO_DMA_IRQn              DMA2_Stream3_IRQn
+ #define SD_SDIO_DMA_IRQHANDLER        DMA2_Stream3_IRQHandler
+ #define SD_SDIO_DMA_ISR               (DMA2->LISR)
+#elif defined SD_SDIO_DMA_STREAM6
+ #define SD_SDIO_DMA_STREAM            DMA2_Stream6
+ #define SD_SDIO_DMA_CHANNEL           DMA_Channel_4
+ #define SD_SDIO_DMA_FLAG_FEIF         DMA_FLAG_FEIF6
+ #define SD_SDIO_DMA_FLAG_DMEIF        DMA_FLAG_DMEIF6
+ #define SD_SDIO_DMA_FLAG_TEIF         DMA_FLAG_TEIF6
+ #define SD_SDIO_DMA_FLAG_HTIF         DMA_FLAG_HTIF6
+ #define SD_SDIO_DMA_FLAG_TCIF         DMA_FLAG_TCIF6
+ #define SD_SDIO_DMA_IRQn              DMA2_Stream6_IRQn
+ #define SD_SDIO_DMA_IRQHANDLER        DMA2_Stream6_IRQHandler
+ #define SD_SDIO_DMA_ISR               (DMA2->HISR)
+#endif /* SD_SDIO_DMA_STREAM3 */
+
+
+void SD_LowLevel_DeInit(void);
+void SD_LowLevel_Init(void);
+void SD_LowLevel_DMA_TxConfig(uint32_t *BufferSRC, uint32_t BufferSize);
+void SD_LowLevel_DMA_RxConfig(uint32_t *BufferDST, uint32_t BufferSize);
+
+/* End of SDIO driver configuration. */
 
 
 /* Uncomment the line below to expanse the "assert_param" macro in the 

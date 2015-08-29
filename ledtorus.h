@@ -137,4 +137,7 @@ extern void an_supply_voltage(frame_t *f, uint32_t c, void *st);
 extern const uint8_t tonc_font[8*96];
 
 /* nrf24l01p.c */
-void setup_nrf24l01p(void);
+extern void setup_nrf24l01p(void);
+
+/* sd_sdio.c */
+extern void setup_sd_sdio(void);

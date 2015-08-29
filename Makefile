@@ -1,6 +1,8 @@
 TARGET=ledtorus
 
-OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o gfx.o font_tonc.o nrf24l01p.o
+OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o \
+  gfx.o font_tonc.o nrf24l01p.o sd_sdio.o \
+  stm324xg_eval_sdio_sd.o
 
 STM_DIR=/home/knielsen/devel/study/stm32f4/STM32F4xx_DSP_StdPeriph_Lib_V1.5.1
 STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
@@ -16,12 +18,22 @@ STM_OBJS  += stm32f4xx_adc.o
 STM_OBJS  += stm32f4xx_syscfg.o
 STM_OBJS  += stm32f4xx_exti.o
 STM_OBJS  += misc.o
+STM_OBJS  += stm32f4xx_sdio.o
 
 INC_DIRS += $(STM_DIR)/Libraries/CMSIS/Include
 INC_DIRS += $(STM_DIR)/Libraries/CMSIS/Device/ST/STM32F4xx/Include
 INC_DIRS += $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/inc
 INC_DIRS += .
 INC = $(addprefix -I,$(INC_DIRS))
+
+# We need to copy in the ST sdio_sd source files to the tree.
+# Because the stm324xg_eval_sdio_sd.h file includes its config from
+# "stm324xg_eval.h", and we want to pick up our own version of that,
+# not the one that's shipped in the same directory as
+# stm324xg_eval_sdio_sd.h
+ST_SDIO_SD_C = $(STM_DIR)/Utilities/STM32_EVAL/STM3240_41_G_EVAL/stm324xg_eval_sdio_sd.c
+ST_SDIO_SD_H = $(STM_DIR)/Utilities/STM32_EVAL/STM3240_41_G_EVAL/stm324xg_eval_sdio_sd.h
+
 
 CC=arm-none-eabi-gcc
 LD=arm-none-eabi-gcc
@@ -34,7 +46,7 @@ LINKSCRIPT=$(TARGET).ld
 
 ARCH_FLAGS=-mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -ffunction-sections -fdata-sections -ffast-math
 
-CFLAGS=-ggdb -O2 -std=c99 -Wall -Wextra -Warray-bounds $(ARCH_FLAGS) $(INC) -DSTM32F40XX -DUSE_STDPERIPH_DRIVER
+CFLAGS=-ggdb -O2 -std=c99 -Wall -Wextra -Warray-bounds -Wno-unused-parameter $(ARCH_FLAGS) $(INC) -DSTM32F40XX -DUSE_STDPERIPH_DRIVER
 LDFLAGS=-Wl,--gc-sections -lm
 
 
@@ -52,10 +64,17 @@ $(TARGET).o: $(TARGET).c ledtorus.h
 $(STARTUP_OBJ): $(STARTUP_SRC)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%.o: %.c ledtorus.h
+%.o: %.c ledtorus.h stm32f4xx_conf.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 nrf24l01p.o: nrf24l01p.h
+stm324xg_eval_sdio_sd.c: stm324xg_eval_sdio_sd.h
+
+stm324xg_eval_sdio_sd.h: $(ST_SDIO_SD_H)
+	ln -s $< $@
+
+stm324xg_eval_sdio_sd.c: $(ST_SDIO_SD_C)
+	ln -s $< $@
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@

@@ -2,3 +2,5 @@
 *.o
 ledtorus.bin
 ledtorus.elf
+stm324xg_eval_sdio_sd.c
+stm324xg_eval_sdio_sd.h
