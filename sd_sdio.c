@@ -262,7 +262,7 @@ setup_sd_sdio(void)
   delay(2000000);
 
   count = 0;
-  for (;;)
+  while (count < 5)
   {
     println_uint32(count++);
     led_on();
