@@ -120,9 +120,22 @@ static const uint16_t tlc_map_flash[3][16] = {
 static uint16_t tlc_map[3][16];
 
 
-/* The double framebuffers. */
-static uint8_t framebuf[2][LEDS_Y*LEDS_X*LEDS_TANG][3];
+/*
+  The double framebuffers.
+  Align on a 32-bit boundary, and pad to a multiple of 512 bytes (SD-card
+  sector size) to allow direct loading by DMA.
+*/
+#define FRAMEBUF_SIZE (LEDS_Y*LEDS_X*LEDS_TANG*3)
+#define DMA_FRAMEBUF_SIZE ((FRAMEBUF_SIZE+511)/512*128)
+static uint32_t dma_able_framebuf[2][DMA_FRAMEBUF_SIZE];
 static uint8_t render_idx;
+
+
+static inline uint8_t
+(*get_framebuf(uint8_t idx))[LEDS_Y*LEDS_X*LEDS_TANG][3]
+{
+  return (uint8_t (*)[LEDS_Y*LEDS_X*LEDS_TANG][3])dma_able_framebuf[idx];
+}
 
 
 /*
@@ -140,7 +153,7 @@ make_scan_planes(uint32_t angle,
   uint16_t *p2 = (uint16_t *)b2;
   uint16_t *p3 = (uint16_t *)b3;
   uint16_t *ps[3] = { p1, p2, p3 };
-  uint8_t (*f)[LEDS_Y*LEDS_X*LEDS_TANG][3] = &framebuf[1 - render_idx];
+  uint8_t (*f)[LEDS_Y*LEDS_X*LEDS_TANG][3] = get_framebuf(1 - render_idx);
   uint32_t t, i;
 
   for (t = 0; t < 3; ++t)
@@ -219,13 +232,13 @@ led_distance_to_center_tlc(uint32_t tlc, uint32_t output)
 
 uint8_t (*render_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3]
 {
-  return &framebuf[render_idx];
+  return get_framebuf(render_idx);
 }
 
 
 uint8_t (*display_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3]
 {
-  return &framebuf[1-render_idx];
+  return get_framebuf(1-render_idx);
 }
 
 
