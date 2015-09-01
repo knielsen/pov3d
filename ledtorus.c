@@ -44,16 +44,15 @@ main(void)
       an_ghost(render_framebuf(), led_state, NULL);
 
     if (led_state & 1)
+      led_on();
+    else
+      led_off();
+    if (!(led_state % 25))
     {
       float val;
 
-      led_on();
       val = voltage_read();
       println_float(val, 1, 3);
-    }
-    else
-    {
-      led_off();
     }
 
     ++led_state;
