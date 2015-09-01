@@ -36,16 +36,10 @@ SD_LowLevel_Init(void)
   GPIO_InitStructure.GPIO_Pin = SD_DETECT_PIN;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
   /*
-    ToDo: The SD card detect switch is open when no card is present, and
-    connects to ground when card is inserted. So we need a pull-up on the
-    pin.
-    However, on my first board, it seems that pin on the SD-card mount is
-    not properly soldered, it does not connect to ground. For now, just put
-    a pull-down on the pin, so it always reads as card present, and then
-    when soldering is fixed it can be made correct.
+    The SD card detect switch is open when no card is present, and connects to
+    ground when card is inserted. So we need a pull-up on the pin.
   */
-  //GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
   GPIO_Init(SD_DETECT_GPIO_PORT, &GPIO_InitStructure);
 
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_SDIO, ENABLE);
