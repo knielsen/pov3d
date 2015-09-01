@@ -141,3 +141,7 @@ extern void setup_nrf24l01p(void);
 
 /* sd_sdio.c */
 extern void setup_sd_sdio(void);
+
+/* hall.c */
+void setup_hall(void);
+uint32_t check_hall(void);

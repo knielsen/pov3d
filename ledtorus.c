@@ -24,6 +24,8 @@ main(void)
   setup_nrf24l01p();
   serial_puts("Setting up SD card...\r\n");
   setup_sd_sdio();
+  serial_puts("Setting up Hall sensor...\r\n");
+  setup_hall();
   serial_puts("Setup done, starting loop...\r\n");
 
   led_state = 0;
@@ -43,10 +45,6 @@ main(void)
     else
       an_ghost(render_framebuf(), led_state, NULL);
 
-    if (led_state & 1)
-      led_on();
-    else
-      led_off();
     if (!(led_state % 25))
     {
       float val;
@@ -56,6 +54,15 @@ main(void)
     }
 
     ++led_state;
-    serial_putchar('.');
+    if (check_hall())
+    {
+      led_on();
+      serial_putchar('*');
+    }
+    else
+    {
+      led_off();
+      serial_putchar('.');
+    }
   }
 }
