@@ -145,3 +145,4 @@ extern void setup_sd_sdio(void);
 /* hall.c */
 void setup_hall(void);
 uint32_t check_hall(void);
+uint32_t last_hall_period(void);

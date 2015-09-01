@@ -49,6 +49,9 @@ main(void)
     {
       float val;
 
+      serial_puts("H: 0x");
+      print_uint32_hex(last_hall_period());
+      serial_puts(" V: ");
       val = voltage_read();
       println_float(val, 1, 3);
     }
