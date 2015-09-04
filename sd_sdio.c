@@ -2,6 +2,8 @@
 
 #include "stm324xg_eval_sdio_sd.h"
 
+#include "ev_fat.h"
+
 
 void
 SD_LowLevel_Init(void)
@@ -256,7 +258,7 @@ setup_sd_sdio(void)
   delay(2000000);
 
   count = 0;
-  while (count < 5)
+  while (count < 3)
   {
     println_uint32(count++);
     led_on();
@@ -281,6 +283,6 @@ setup_sd_sdio(void)
     led_off();
 
     serial_dump_buf(buf+512-16, 16);
-    delay(150000000);
+    delay(10000000);
   }
 }
