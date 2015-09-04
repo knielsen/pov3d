@@ -13,6 +13,11 @@
 
 static volatile uint32_t scan_counter;
 
+#define NOMINAL_PERIOD ((MCU_HZ/2 + (LEDS_TANG*FRAMERATE/2)) / (LEDS_TANG*FRAMERATE))
+/* Set limits so that if Hall is completely off we can ignore it. */
+#define MIN_PERIOD (NOMINAL_PERIOD*8/10)
+#define MAX_PERIOD 64000
+
 
 static void
 setup_gsclks(void)
@@ -66,8 +71,8 @@ setup_scanplane_timer(void)
 
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6, ENABLE);
 
-  TIM_TimeBaseStructure.TIM_Period = 4095;
-  TIM_TimeBaseStructure.TIM_Prescaler = GSCLK_PERIOD-1;
+  TIM_TimeBaseStructure.TIM_Period = NOMINAL_PERIOD;
+  TIM_TimeBaseStructure.TIM_Prescaler = 0;
   /* Remaining fields not used for TIM6/TIM7. */
   TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
   TIM_TimeBaseStructure.TIM_ClockDivision = 0;
@@ -115,12 +120,17 @@ void TIM6_DAC_IRQHandler(void)
 {
   if (TIM6->SR & TIM_IT_Update)
   {
+    uint32_t hall_timer, c, loc_prev_hall;
     uint8_t idx;
     uint8_t ic;
+    uint8_t new_round;
+    static uint8_t saved_new_round = 0;
+    static uint32_t saved_prev_hall = 0;
 
     ic = init_counter;
     if (ic >= 2)
       latch_scanplanes();
+    hall_timer = current_hall_timer();
 
     idx = scanbuffer_idx;
     if (ic >= 2 && !is_tlc_dma_done())
@@ -141,6 +151,39 @@ void TIM6_DAC_IRQHandler(void)
     }
     idx = 1 - idx;
     scanbuffer_idx = idx;
+
+    c = scan_counter;
+    if (c == 0)
+      saved_new_round = new_round = 1;
+    else
+      new_round = saved_new_round;
+    loc_prev_hall = prev_hall;
+    if (new_round && loc_prev_hall != saved_prev_hall)
+    {
+      /*
+        Adjust timer period as needed to remain fixed with respect to the
+        Hall sensor trigger.
+      */
+      uint32_t hall_period, remain_scanplanes, remain_time;
+      uint32_t new_period;
+
+      hall_period = prev_hall_period;
+      remain_scanplanes = (LEDS_TANG-1) - c;
+      if (remain_scanplanes == 0)
+      {
+        remain_scanplanes = LEDS_TANG;
+        remain_time = hall_period;
+      }
+      else
+        remain_time = loc_prev_hall + hall_period - hall_timer;
+      new_period = (remain_time + remain_scanplanes/2) / remain_scanplanes;
+      if (new_period < MIN_PERIOD || new_period > MAX_PERIOD)
+        new_period = NOMINAL_PERIOD;
+      TIM6->ARR = new_period;
+
+      saved_new_round = 0;
+      saved_prev_hall = loc_prev_hall;
+    }
 
     /*
       Now do the rest of the processing (preparation of the next scanplane to

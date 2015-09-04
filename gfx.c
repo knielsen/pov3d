@@ -239,9 +239,13 @@ an_supply_voltage(frame_t *f, uint32_t c, void *st __attribute__((unused)))
 {
   char buf[50];
   static float voltage = 0.0f;
+  static uint32_t hall_period = 0;
+  static uint32_t timer_period = 0;
   char *p;
   float stretch;
+  float hue, sat, val;
   uint32_t a, c2;
+  struct colour3 textcol;
 
   cls(f);
   if (voltage == 0.0f || (c%64) == 0)
@@ -255,5 +259,21 @@ an_supply_voltage(frame_t *f, uint32_t c, void *st __attribute__((unused)))
   else
     stretch = 1.0f;
   a = (2*c)%LEDS_TANG;
-  g_text(f, buf, 4, a, 255, 100, 20, stretch);
+  hue = (float)(c % 512)/512.0f;
+  sat = 0.9+0.0999f*sinf((float)(c % 73)*(F_PI*2.0f/73.0f));
+  val = 0.85f+0.1499f*sinf((float)(c % 145)*(F_PI*2.0f/145.0f));
+  textcol = hsv2rgb_f(hue, sat, val);
+  g_text(f, buf, 5, a, textcol.r, textcol.g, textcol.b, stretch);
+
+  if (hall_period == 0 || (c % 25) == 0)
+    hall_period = last_hall_period();
+  p = my_str_mk(buf, "FPS: ");
+  float_to_str(p, 84000000.0f/(float)hall_period, 2, 2);
+  g_text(f, buf, 3, 0, 0, 0, 100, 1.0f);
+
+  if (timer_period == 0 || (c % 15) == 0)
+    timer_period = TIM6->ARR;
+  p = my_str_mk(buf, "TIM6: ");
+  float_to_str(p, (float)timer_period, 5, 1);
+  g_text(f, buf, 2, (LEDS_TANG-1) - (c/2)%LEDS_TANG, 100, 0, 0, 1.5f);
 }

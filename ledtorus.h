@@ -43,6 +43,7 @@
 #define LEDS_X 7
 #define LEDS_Y 8
 #define LEDS_TANG 205
+#define FRAMERATE 25
 
 
 typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
@@ -143,6 +144,9 @@ extern void setup_nrf24l01p(void);
 extern void setup_sd_sdio(void);
 
 /* hall.c */
-void setup_hall(void);
-uint32_t check_hall(void);
-uint32_t last_hall_period(void);
+extern volatile uint32_t prev_hall;
+extern volatile uint32_t prev_hall_period;
+static inline uint32_t current_hall_timer(void) { return TIM2->CNT; }
+extern void setup_hall(void);
+extern uint32_t check_hall(void);
+extern uint32_t last_hall_period(void);
