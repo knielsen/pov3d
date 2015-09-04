@@ -46,6 +46,8 @@
 #define FRAMERATE 25
 
 
+#define FRAMEBUF_SIZE (LEDS_Y*LEDS_X*LEDS_TANG*3)
+#define DMA_FRAMEBUF_SIZE ((FRAMEBUF_SIZE+511)/512*128)
 typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
 
 
@@ -133,6 +135,7 @@ extern void flip_framebuf(void);
 extern void test_img1(void);
 extern void an_ghost(frame_t *f, uint32_t c, void *st);
 extern void an_supply_voltage(frame_t *f, uint32_t c, void *st);
+extern void an_sdcard(frame_t *f, uint32_t c, void *st);
 
 /* font_tonc.c */
 extern const uint8_t tonc_font[8*96];
@@ -142,6 +145,8 @@ extern void setup_nrf24l01p(void);
 
 /* sd_sdio.c */
 extern void setup_sd_sdio(void);
+extern int read_sectors(uint32_t *buf, uint32_t count);
+extern int open_file(const char *name);
 
 /* hall.c */
 extern volatile uint32_t prev_hall;

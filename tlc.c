@@ -125,8 +125,6 @@ static uint16_t tlc_map[3][16];
   Align on a 32-bit boundary, and pad to a multiple of 512 bytes (SD-card
   sector size) to allow direct loading by DMA.
 */
-#define FRAMEBUF_SIZE (LEDS_Y*LEDS_X*LEDS_TANG*3)
-#define DMA_FRAMEBUF_SIZE ((FRAMEBUF_SIZE+511)/512*128)
 static uint32_t dma_able_framebuf[2][DMA_FRAMEBUF_SIZE];
 static uint8_t render_idx;
 

@@ -240,49 +240,229 @@ static void NVIC_Configuration(void)
 }
 
 
+static uint32_t sd_buf[512/sizeof(uint32_t)];
+static struct ev_file_status sd_status;
+static uint32_t file_sofar = 0;
+static uint32_t file_length = 0;
+static uint32_t range_start_sec = 0;
+static uint32_t range_end_sec = 0;
+static uint32_t cached_sector = 0;
+static uint8_t have_cached_sector = 0;
+
+
+static int
+handle_stream_bytes(void)
+{
+  uint32_t sec = sd_status.st_stream_bytes.sec;
+  uint32_t i, offset, len;
+  SD_Error err;
+
+  if (!have_cached_sector || cached_sector != sec)
+  {
+    /* Need to read the requested sector. */
+    led_on();
+    if ((err = SD_ReadBlock((uint8_t*)sd_buf, (uint64_t)sec*512, 512)) != SD_OK)
+    {
+      led_off();
+      serial_puts("SD read error: ");
+      serial_puts(sdio_error_name(err));
+      serial_puts("\r\n");
+      return 1;
+    }
+    if ((err = SD_WaitReadOperation()) != SD_OK)
+    {
+      led_off();
+      serial_puts("SD wait single not ok: ");
+      serial_puts(sdio_error_name(err));
+      serial_puts("\r\n");
+      return 1;
+    }
+    if (SD_GetStatus() != SD_TRANSFER_OK)
+    {
+      led_off();
+      serial_puts("SD_GetStatus() not ok\r\n");
+      return 1;
+    }
+    led_off();
+    cached_sector = sec;
+    have_cached_sector = 1;
+  }
+
+  offset = sd_status.st_stream_bytes.offset;
+  len = sd_status.st_stream_bytes.len;
+  for (i = 0; i < len; ++i)
+    ev_file_stream_bytes(((uint8_t *)sd_buf)[offset + i], &sd_status);
+  return 0;
+}
+
+
+int
+open_file(const char *name)
+{
+  SD_Error err;
+  int res;
+
+  have_cached_sector = 0;                    /* In case of switch out card. */
+  if (SD_Detect() != SD_PRESENT)
+  {
+    serial_puts("No SD card present\r\n");
+    return 1;
+  }
+  if ((err = SD_Init()) != SD_OK)
+  {
+    serial_puts("SD_Init() failed: ");
+    serial_puts(sdio_error_name(err));
+    serial_puts("\r\n");
+    return 1;
+  }
+
+  sd_status.state = 0;
+  for (;;)
+  {
+    res = ev_file_get_first_block(name, &sd_status);
+    if (res < 0)
+    {
+      serial_puts("Error opening file: ");
+      println_int32(res);
+      return 1;
+    }
+    if (res == EV_FILE_ST_DONE)
+      break;
+    if (res == EV_FILE_ST_STREAM_BYTES)
+    {
+      if (handle_stream_bytes())
+        return 1;
+    }
+  }
+  file_sofar = 0;
+  file_length = (sd_status.st_get_block_done.length+511)/512;
+  range_end_sec = range_start_sec = sd_status.st_get_block_done.sector;
+
+  return 0;
+}
+
+
+static int
+get_next_block(void)
+{
+  int res;
+
+  for (;;)
+  {
+    res = ev_file_get_next_block(&sd_status);
+    if (res < 0)
+    {
+      serial_puts("Error opening file: ");
+      println_int32(res);
+      return 1;
+    }
+    if (res == EV_FILE_ST_DONE)
+      break;
+    if (res == EV_FILE_ST_STREAM_BYTES)
+    {
+      if (handle_stream_bytes())
+        return 1;
+    }
+  }
+  return 0;
+}
+
+
+static int
+read_range(uint32_t **dest)
+{
+  uint32_t start = range_start_sec;
+  uint32_t count = range_end_sec - start + 1;
+  SD_Error err;
+
+  led_on();
+  if (count == 1)
+    err = SD_ReadBlock((uint8_t *)*dest, (uint64_t)start*512, 512);
+  else
+    err = SD_ReadMultiBlocks((uint8_t *)*dest, (uint64_t)start*512, 512, count);
+  if (err != SD_OK)
+  {
+    led_off();
+    serial_puts("SD read error: ");
+    serial_puts(sdio_error_name(err));
+    serial_puts("\r\n");
+    return 1;
+  }
+  if ((err = SD_WaitReadOperation()) != SD_OK)
+  {
+    led_off();
+    serial_puts("SD wait not ok: ");
+    serial_puts(sdio_error_name(err));
+    serial_puts("\r\n");
+    return 1;
+  }
+  if (SD_GetStatus() != SD_TRANSFER_OK)
+  {
+    led_off();
+    serial_puts("SD_GetStatus() not ok\r\n");
+    return 1;
+  }
+  led_off();
+  *dest += count*(512/sizeof(uint32_t));
+  return 0;
+}
+
+
+/*
+  Read the next bunch of sectors into a buffer.
+
+  Returns 0 on ok, -1 on end-of-file, 1 on error.
+*/
+int
+read_sectors(uint32_t *buf, uint32_t count)
+{
+  uint32_t start = file_sofar;
+  uint32_t *dest = buf;
+
+  if (start >= file_length)
+    return -1;
+  /*
+    A special case for the very first sector; we already found that in
+    file_open(). This is detected by file_sofar == 0.
+  */
+  if (start != 0)
+  {
+    if (get_next_block())
+      return 1;
+    range_end_sec = range_start_sec = sd_status.st_get_block_done.sector;
+  }
+  ++file_sofar;
+
+  for (;;)
+  {
+    uint32_t new_sec;
+
+    if (file_sofar >= start + count)
+      break;
+    if (file_sofar >= file_length)
+    {
+      if (read_range(&dest))
+        return 1;
+      return -1;
+    }
+    if (get_next_block())
+      return 1;
+    new_sec = sd_status.st_get_block_done.sector;
+    if (new_sec != range_end_sec + 1)
+    {
+      if (read_range(&dest))
+        return 1;
+      range_start_sec = new_sec;
+    }
+    range_end_sec = new_sec;
+    ++file_sofar;
+  }
+  return read_range(&dest);
+}
+
+
 void
 setup_sd_sdio(void)
 {
-  uint32_t count;
-  SD_Error err;
-  static uint8_t buf[512*4];
-
-  delay(2000000);
   NVIC_Configuration();
-  delay(2000000);
-
-  if (SD_Init() == SD_OK)
-    serial_puts("SD ok!?!\r\n");
-  else
-    serial_puts("SD not ok :-/\r\n");
-  delay(2000000);
-
-  count = 0;
-  while (count < 3)
-  {
-    println_uint32(count++);
-    led_on();
-    if ((err = SD_ReadMultiBlocks(buf, 0, 512, 4)) == SD_OK)
-      serial_puts("SD multiread ok!?!\r\n");
-    else
-    {
-      serial_puts("SD multiread not ok: ");
-      serial_puts(sdio_error_name(err));
-      serial_puts(" :-/\r\n");
-    }
-    if ((err = SD_WaitReadOperation()) == SD_OK)
-      serial_puts("SD wait multi ok!?!\r\n");
-    else
-    {
-      serial_puts("SD wait multi not ok: ");
-      serial_puts(sdio_error_name(err));
-      serial_puts(" :-/\r\n");
-    }
-    while (SD_GetStatus() != SD_TRANSFER_OK)
-      ;
-    led_off();
-
-    serial_dump_buf(buf+512-16, 16);
-    delay(10000000);
-  }
 }

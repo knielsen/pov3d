@@ -40,10 +40,12 @@ main(void)
     } while (new_frame_counter == old_frame_counter);
     old_frame_counter = new_frame_counter;
 
-    if ((led_state % 1024) < 512)
+    if ((led_state % 2048) < 512)
       an_supply_voltage(render_framebuf(), led_state, NULL);
-    else
+    else if ((led_state % 2048) < 1024)
       an_ghost(render_framebuf(), led_state, NULL);
+    else
+      an_sdcard(render_framebuf(), led_state, NULL);
 
     if (!(led_state % 25))
     {

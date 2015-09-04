@@ -277,3 +277,29 @@ an_supply_voltage(frame_t *f, uint32_t c, void *st __attribute__((unused)))
   float_to_str(p, (float)timer_period, 5, 1);
   g_text(f, buf, 2, (LEDS_TANG-1) - (c/2)%LEDS_TANG, 100, 0, 0, 1.5f);
 }
+
+
+void
+an_sdcard(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+{
+  static uint8_t file_open = 0;
+  int res;
+
+  if (!file_open)
+  {
+    if (open_file("SIMPLEX1.P3D"))
+    {
+      cls(f);
+      return;
+    }
+    file_open = 1;
+  }
+
+  if ((res = read_sectors((uint32_t *)f, DMA_FRAMEBUF_SIZE/128)) != 0)
+  {
+    file_open = 0;
+    if (res > 0)
+      cls(f);
+    return;
+  }
+}
