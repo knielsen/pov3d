@@ -141,7 +141,10 @@ extern void an_sdcard(frame_t *f, uint32_t c, void *st);
 extern const uint8_t tonc_font[8*96];
 
 /* nrf24l01p.c */
-extern uint8_t key_state;
+#define KEY_EVENT_DOWN ((uint32_t)0x80000000)
+#define KEY_NOEVENT ((uint32_t)0xffffffff)
+extern volatile uint8_t key_state;
+extern uint32_t get_key_event(void);
 extern void setup_nrf24l01p(void);
 
 /* sd_sdio.c */

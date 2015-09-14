@@ -16,7 +16,11 @@
 #define POV_SUBCMD_KEYPRESSES 2
 
 
-uint8_t key_state;
+uint8_t volatile key_state;
+#define MAX_KEY_EVENTS 16
+
+static volatile uint32_t key_events[MAX_KEY_EVENTS];
+static volatile uint32_t key_event_head = 0, key_event_tail = 0;
 
 
 static void
@@ -623,6 +627,40 @@ resched:
 
 
 static void
+enqueue_key_event(uint32_t event)
+{
+  uint32_t tail = key_event_tail;
+  uint32_t new_tail = (tail+1) % MAX_KEY_EVENTS;
+  if (new_tail != key_event_head)
+  {
+    key_events[tail] = event;
+    key_event_tail = new_tail;
+  }
+}
+
+
+static uint32_t
+dequeue_key_event(void)
+{
+  uint32_t head = key_event_head;
+  uint32_t event;
+
+  if (head == key_event_tail)
+    return KEY_NOEVENT;
+  event = key_events[head];
+  key_event_head = (head + 1) % MAX_KEY_EVENTS;
+  return event;
+}
+
+
+uint32_t
+get_key_event(void)
+{
+  return dequeue_key_event();
+}
+
+
+static void
 nrf_receive_cb(uint8_t *packet, void *dummy __attribute__((unused)))
 {
   uint8_t cmd, subcmd;
@@ -640,9 +678,20 @@ nrf_receive_cb(uint8_t *packet, void *dummy __attribute__((unused)))
   }
   else if (cmd == POV_CMD_CONFIG)
   {
+    uint8_t old_state = key_state;
+    uint8_t new_state = packet[2];
+
     if (subcmd == POV_SUBCMD_KEYPRESSES)
     {
-      key_state = packet[2];
+      uint32_t i;
+      uint32_t diff = old_state ^ new_state;
+
+      key_state = new_state;
+      for (i = 0; i < 8; ++i)
+      {
+        if (diff & (1<<i))
+          enqueue_key_event(i | ((new_state & (1<<i)) ? KEY_EVENT_DOWN : 0));
+      }
     }
   }
 }
