@@ -3,19 +3,35 @@
 #include "ledtorus.h"
 
 
-static uint8_t led_intensity = 100;
+static uint8_t led_intensity = 50;
 
 static void
 led_decrease_intensity(void)
 {
-  /* ToDo */
+  if (led_intensity > 0)
+  {
+    uint8_t intensity_inc = (led_intensity > 15 ? 10 : 2);
+    if (led_intensity > intensity_inc)
+      led_intensity -= intensity_inc;
+    else
+      led_intensity = 0;
+    new_intensity(led_intensity);
+  }
 }
 
 
 static void
 led_increase_intensity(void)
 {
-  /* ToDo */
+  if (led_intensity < 127)
+  {
+    uint8_t intensity_dec = (led_intensity > 24 ? 10 : 2);
+    if ((127 - led_intensity) > intensity_dec)
+      led_intensity += intensity_dec;
+    else
+      led_intensity = 127;
+    new_intensity(led_intensity);
+  }
 }
 
 

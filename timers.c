@@ -116,6 +116,8 @@ static uint32_t scanplane_buffers[2][3][25];
 static uint8_t scanbuffer_idx = 0;
 static uint8_t init_counter = 0;
 static volatile uint32_t frame_counter = 0;
+static volatile uint32_t change_intensity_flag = 0;
+
 void TIM6_DAC_IRQHandler(void)
 {
   if (TIM6->SR & TIM_IT_Update)
@@ -209,10 +211,37 @@ EXTI0_IRQHandler(void)
   if (EXTI->PR & EXTI_Line0) {
     uint32_t c = scan_counter;
     uint8_t idx = scanbuffer_idx;
+    uint32_t intensity_flag;
 
-    make_scan_planes(c, scanplane_buffers[idx][0],
-                     scanplane_buffers[idx][1],
-                     scanplane_buffers[idx][2]);
+    intensity_flag = change_intensity_flag;
+    if (intensity_flag)
+    {
+      uint8_t intensity = intensity_flag & 0x7f;
+      uint8_t counter;
+
+      /*
+        Change LED intensity, by generating new control data instead in the
+        coming scanplanes, and shifting it out twice over the next two rounds.
+      */
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][0]) + 1,
+                                 0, intensity, 4);
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][1]) + 1,
+                                 1, intensity, 4);
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][2]) + 1,
+                                 2, intensity, 4);
+      counter = intensity_flag >> 8;
+      /* Generate control data twice, then go back to normal operation. */
+      if (counter == 2)
+        change_intensity_flag = intensity_flag - 0x100;
+      else
+        change_intensity_flag = 0;
+    }
+    else
+    {
+      make_scan_planes(c, scanplane_buffers[idx][0],
+                       scanplane_buffers[idx][1],
+                       scanplane_buffers[idx][2]);
+    }
     ++c;
     if (c >= LEDS_TANG)
     {
@@ -232,6 +261,13 @@ uint32_t
 get_frame_counter(void)
 {
   return frame_counter;
+}
+
+
+void
+new_intensity(uint8_t intensity)
+{
+  change_intensity_flag = (2<<8) | intensity;
 }
 
 

@@ -348,7 +348,7 @@ shift_buf_7_bits(uint8_t *buf, uint32_t len)
 
     MC=4, BC=0..127 -> 1.91 .. 19.1 mA.
 */
-static void
+void
 fill_tlc5955_control_latch(uint8_t *buf,
                            uint32_t tlc_idx, uint32_t bc_val, uint32_t mc_val)
 {

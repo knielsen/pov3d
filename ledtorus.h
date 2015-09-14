@@ -91,11 +91,14 @@ extern void setup_spi(void);
 extern void start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3);
 extern void latch_scanplanes(void);
 extern uint32_t is_tlc_dma_done(void);
+extern void fill_tlc5955_control_latch(uint8_t *buf, uint32_t tlc_idx,
+                                       uint32_t bc_val, uint32_t mc_val);
 
 /* timers.c */
 extern void setup_timers(void);
 extern uint32_t get_frame_counter(void);
 extern void tlc_show_time_stat(void);
+extern void new_intensity(uint8_t intensity);
 static inline uint32_t
 get_time(void)
 {
