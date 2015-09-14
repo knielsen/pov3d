@@ -51,23 +51,13 @@ main(void)
     {
       float val;
 
-      serial_puts("H: 0x");
-      print_uint32_hex(last_hall_period());
+      serial_puts("K: 0x");
+      serial_output_hexbyte(key_state);
       serial_puts(" V: ");
       val = voltage_read();
       println_float(val, 1, 3);
     }
 
     ++led_state;
-    if (check_hall())
-    {
-      led_on();
-      serial_putchar('*');
-    }
-    else
-    {
-      led_off();
-      serial_putchar('.');
-    }
   }
 }

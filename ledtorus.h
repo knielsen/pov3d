@@ -141,6 +141,7 @@ extern void an_sdcard(frame_t *f, uint32_t c, void *st);
 extern const uint8_t tonc_font[8*96];
 
 /* nrf24l01p.c */
+extern uint8_t key_state;
 extern void setup_nrf24l01p(void);
 
 /* sd_sdio.c */

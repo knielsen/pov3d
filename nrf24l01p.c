@@ -11,6 +11,13 @@
 #define POV_SUBCMD_EXIT_DEBUG   251
 #define POV_SUBCMD_STATUS_REPLY 240
 
+#define POV_CMD_CONFIG 255
+#define POV_SUBCMD_SET_CONFIG 1
+#define POV_SUBCMD_KEYPRESSES 2
+
+
+uint8_t key_state;
+
 
 static void
 nrf_irq_enable(void)
@@ -629,6 +636,13 @@ nrf_receive_cb(uint8_t *packet, void *dummy __attribute__((unused)))
       /* Reset to bootloader. */
       NVIC_SystemReset();
       /* NotReached */
+    }
+  }
+  else if (cmd == POV_CMD_CONFIG)
+  {
+    if (subcmd == POV_SUBCMD_KEYPRESSES)
+    {
+      key_state = packet[2];
     }
   }
 }
