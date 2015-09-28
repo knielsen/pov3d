@@ -192,7 +192,7 @@ envelope(frame_t *f, uint32_t c)
 }
 
 
-void
+static uint32_t
 an_ghost(frame_t *f, uint32_t c, void *st __attribute__((unused)))
 {
   uint32_t a, x;
@@ -223,6 +223,8 @@ an_ghost(frame_t *f, uint32_t c, void *st __attribute__((unused)))
       }
     }
   }
+
+  return 0;
 }
 
 
@@ -234,7 +236,7 @@ my_str_mk(char *dst, const char *src)
   return dst;
 }
 
-void
+uint32_t
 an_supply_voltage(frame_t *f, uint32_t c, void *st __attribute__((unused)))
 {
   char buf[50];
@@ -276,30 +278,55 @@ an_supply_voltage(frame_t *f, uint32_t c, void *st __attribute__((unused)))
   p = my_str_mk(buf, "TIM6: ");
   float_to_str(p, (float)timer_period, 5, 1);
   g_text(f, buf, 2, (LEDS_TANG-1) - (c/2)%LEDS_TANG, 100, 0, 0, 1.5f);
+
+  return 0;
 }
 
 
-void
-an_sdcard(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+static uint32_t
+in_sdcard(const struct ledtorus_anim *self, void **out_data)
 {
-  static uint8_t file_open = 0;
+  const char *filename = self->init_data;
+
+  if (open_file(filename))
+    return 1;
+  return 0;
+}
+
+
+static uint32_t
+an_sdcard(frame_t *f, uint32_t c, void *data __attribute__((unused)))
+{
   int res;
 
-  if (!file_open)
+  res = read_sectors((uint32_t *)f, DMA_FRAMEBUF_SIZE/128);
+  if (res == 0)
+    return 0;
+  else
   {
-    if (open_file("SIMPLEX1.P3D"))
-    {
-      cls(f);
-      return;
-    }
-    file_open = 1;
-  }
-
-  if ((res = read_sectors((uint32_t *)f, DMA_FRAMEBUF_SIZE/128)) != 0)
-  {
-    file_open = 0;
     if (res > 0)
-      cls(f);
-    return;
+      cls(f);                                   /* Clear on error. */
+    /* End animation on EOF or error. */
+    return 1;
   }
 }
+
+
+const struct ledtorus_anim anim_table[] = {
+  { "Status",
+    "Couple of scroll-texts displaying status",
+    512, NULL, NULL, an_supply_voltage },
+
+  { "Ghost",
+    "Animated cosine-wave",
+    512, NULL, NULL, an_ghost },
+
+  { "Simplex1",
+    "First prototype Simplex Noise animation",
+    0, "SIMPLEX1.P3D", in_sdcard, an_sdcard },
+
+  { "Simplex2",
+    "Second prototype Simplex Noise animation",
+    0, "SIMPLEX2.P3D", in_sdcard, an_sdcard },
+};
+const uint32_t anim_table_length = sizeof(anim_table)/sizeof(anim_table[0]);

@@ -135,10 +135,16 @@ extern uint8_t (*display_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3];
 extern void flip_framebuf(void);
 
 /* gfx.c */
+extern const struct ledtorus_anim {
+  const char *name;
+  const char *description;
+  uint32_t duration;
+  void *init_data;
+  uint32_t (*init)(const struct ledtorus_anim *self, void **out_data);
+  uint32_t (*nextframe)(frame_t *f, uint32_t c, void *data);
+} anim_table[];
+extern const uint32_t anim_table_length;
 extern void test_img1(void);
-extern void an_ghost(frame_t *f, uint32_t c, void *st);
-extern void an_supply_voltage(frame_t *f, uint32_t c, void *st);
-extern void an_sdcard(frame_t *f, uint32_t c, void *st);
 
 /* font_tonc.c */
 extern const uint8_t tonc_font[8*96];

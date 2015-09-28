@@ -38,10 +38,11 @@ led_increase_intensity(void)
 int
 main(void)
 {
-  uint32_t led_state;
+  uint32_t anim_state;
   uint32_t old_frame_counter;
-  static const uint32_t NUM_ANIMS = 3;
-  uint32_t cur_anim = 0;
+  uint32_t cur_anim;
+  uint32_t anim_running;
+  void *cur_anim_data;
 
   setup_led();
   setup_serial();
@@ -62,9 +63,12 @@ main(void)
   setup_hall();
   serial_puts("Setup done, starting loop...\r\n");
 
-  led_state = 0;
+  anim_state = 0;
   test_img1();
   old_frame_counter = 42;
+  anim_running = 0;
+  cur_anim = anim_table_length - 1;
+  cur_anim_data = NULL;
   for (;;)
   {
     uint32_t new_frame_counter;
@@ -76,6 +80,31 @@ main(void)
     } while (new_frame_counter == old_frame_counter);
     old_frame_counter = new_frame_counter;
 
+    if (!(anim_state % 100))
+    {
+      float val;
+
+      serial_puts("V: ");
+      val = voltage_read();
+      println_float(val, 1, 3);
+    }
+
+    while (!anim_running)
+    {
+      ++cur_anim;
+      if (cur_anim >= anim_table_length)
+        cur_anim = 0;
+      anim_state = 0;
+      if (anim_table[cur_anim].init)
+        anim_running = !anim_table[cur_anim].init(&anim_table[cur_anim],
+                                                  &cur_anim_data);
+      else
+        anim_running = 1;
+    }
+    anim_running = !anim_table[cur_anim].nextframe(render_framebuf(),
+                                                   anim_state, cur_anim_data);
+
+    ++anim_state;
     if (key_state & (1<<5))
     {
       /* Manual mode. Animation selected by keys 0 and 1. */
@@ -83,25 +112,9 @@ main(void)
     else
     {
       /* Automatic mode, animation switches after playing for some time. */
-      uint32_t x = (led_state % 2048);
-      if (x < 512)
-        cur_anim = 0;
-      else if (x < 1024)
-        cur_anim = 1;
-      else
-        cur_anim = 2;
-    }
-    switch(cur_anim)
-    {
-    case 0:
-      an_supply_voltage(render_framebuf(), led_state, NULL);
-      break;
-    case 1:
-      an_ghost(render_framebuf(), led_state, NULL);
-      break;
-    case 2:
-      an_sdcard(render_framebuf(), led_state, NULL);
-      break;
+      if (anim_table[cur_anim].duration > 0 &&
+          anim_state >= anim_table[cur_anim].duration)
+        anim_running = 0;
     }
 
     while ((key = get_key_event()) != KEY_NOEVENT)
@@ -113,24 +126,18 @@ main(void)
       serial_puts("\r\n");
 
       if (key == (0 | KEY_EVENT_DOWN))
-        cur_anim = (cur_anim + (NUM_ANIMS-1)) % NUM_ANIMS;
+      {
+        cur_anim = (cur_anim + anim_table_length - 2) % anim_table_length;
+        anim_running = 0;
+      }
       else if (key == (1 | KEY_EVENT_DOWN))
-        cur_anim = (cur_anim + 1) % NUM_ANIMS;
+      {
+        anim_running = 0;
+      }
       else if (key == (2 | KEY_EVENT_DOWN))
         led_decrease_intensity();
       else if (key == (3 | KEY_EVENT_DOWN))
         led_increase_intensity();
     }
-
-    if (!(led_state % 25))
-    {
-      float val;
-
-      serial_puts("V: ");
-      val = voltage_read();
-      println_float(val, 1, 3);
-    }
-
-    ++led_state;
   }
 }
