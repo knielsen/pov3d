@@ -120,7 +120,7 @@ print_uint32_hex(uint32_t val)
 }
 
 
-void
+char *
 float_to_str(char *buf, float f, uint32_t dig_before, uint32_t dig_after)
 {
   float a;
@@ -129,9 +129,9 @@ float_to_str(char *buf, float f, uint32_t dig_before, uint32_t dig_after)
 
   if (f == 0.0f)
   {
-    buf[0] = '0';
-    buf[1] = '\0';
-    return;
+    *buf++ = '0';
+    *buf = '\0';
+    return buf;
   }
   if (f < 0)
   {
@@ -141,9 +141,9 @@ float_to_str(char *buf, float f, uint32_t dig_before, uint32_t dig_after)
   a =  powf(10.0f, (float)dig_before);
   if (f >= a)
   {
-    buf[0] = '#';
-    buf[1] = '\0';
-    return;
+    *buf++ = '#';
+    *buf = '\0';
+    return buf;
   }
   leading_zero = 1;
   while (dig_before)
@@ -162,8 +162,8 @@ float_to_str(char *buf, float f, uint32_t dig_before, uint32_t dig_after)
   }
   if (!dig_after)
   {
-    *buf++ = '\0';
-    return;
+    *buf = '\0';
+    return buf;
   }
   *buf++ = '.';
   do
@@ -174,7 +174,8 @@ float_to_str(char *buf, float f, uint32_t dig_before, uint32_t dig_after)
     f -= (float)d;
     --dig_after;
   } while (dig_after);
-  *buf++ = '\0';
+  *buf = '\0';
+  return buf;
 }
 
 

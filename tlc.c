@@ -245,3 +245,35 @@ flip_framebuf(void)
 {
   render_idx = 1 - render_idx;
 }
+
+
+uint8_t led_intensity = 50;
+
+void
+led_decrease_intensity(void)
+{
+  if (led_intensity > 0)
+  {
+    uint8_t intensity_dec = (led_intensity > 15 ? 10 : 2);
+    if (led_intensity > intensity_dec)
+      led_intensity -= intensity_dec;
+    else
+      led_intensity = 0;
+    new_intensity(led_intensity);
+  }
+}
+
+
+void
+led_increase_intensity(void)
+{
+  if (led_intensity < 127)
+  {
+    uint8_t intensity_inc = (led_intensity > 24 ? 10 : 2);
+    if ((127 - led_intensity) > intensity_inc)
+      led_intensity += intensity_inc;
+    else
+      led_intensity = 127;
+    new_intensity(led_intensity);
+  }
+}

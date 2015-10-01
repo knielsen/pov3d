@@ -81,7 +81,7 @@ extern void serial_output_hexbyte(uint8_t byte);
 extern void println_uint32(uint32_t val);
 extern void println_int32(int32_t val);
 extern void print_uint32_hex(uint32_t val);
-extern void float_to_str(char *buf, float f,
+extern char *float_to_str(char *buf, float f,
                          uint32_t dig_before, uint32_t dig_after);
 extern void println_float(float f, uint32_t dig_before, uint32_t dig_after);
 extern void serial_dump_buf(uint8_t *buf, uint32_t len);
@@ -125,6 +125,7 @@ extern uint32_t adc_read(void);
 extern float voltage_read(void);
 
 /* tlc.c */
+extern uint8_t led_intensity;
 extern void make_scan_planes(uint32_t angle, uint32_t *b1, uint32_t *b2,
                              uint32_t *b3);
 extern void init_tlc(void);
@@ -133,6 +134,8 @@ extern float led_distance_to_center_tlc(uint32_t tlc, uint32_t output);
 extern uint8_t (*render_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3];
 extern uint8_t (*display_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3];
 extern void flip_framebuf(void);
+extern void led_decrease_intensity(void);
+extern void led_increase_intensity(void);
 
 /* gfx.c */
 extern const struct ledtorus_anim {
