@@ -420,7 +420,7 @@ nrf_flush_rx()
 static void
 nrf_init_config(uint32_t channel, uint32_t power)
 {
-  static const uint8_t addr[3] = { 0xe7, 0xe7, 0xe7 };
+  static const uint8_t addr[3] = { 0x7e, 0xc8, 0x33 };
 
   nrf_write_reg_blocking(nRF_CONFIG, nRF_PRIM_RX | nRF_MASK_TX_DS |
                 nRF_MASK_MAX_RT|nRF_EN_CRC|nRF_CRCO|nRF_PWR_UP);
@@ -434,7 +434,7 @@ nrf_init_config(uint32_t channel, uint32_t power)
   nrf_write_reg_blocking(nRF_SETUP_RETR, 0);
   nrf_write_reg_blocking(nRF_RF_CH, channel);
   /* Use 2Mbps, and set transmit power. */
-  nrf_write_reg_blocking(nRF_RF_SETUP, nRF_RF_DR_HIGH | power);
+  nrf_write_reg_blocking(nRF_RF_SETUP, nRF_RF_DR_LOW | power);
   nrf_write_reg_n_blocking(nRF_RX_ADDR_P0, addr, 3);
   nrf_write_reg_n_blocking(nRF_TX_ADDR, addr, 3);
   /* Set payload size for pipe 0. */
@@ -703,7 +703,7 @@ setup_nrf24l01p(void)
   setup_nrf_spi();
   /* nRF24L01+ datasheet says to wait 100msec for bootup. */
   delay(MCU_HZ/3/10);
-  nrf_init_config(2, nRF_RF_PWR_0DBM);
+  nrf_init_config(81, nRF_RF_PWR_0DBM);
 
   /* Start receiving packets! */
   nrf_async_receive_multi_start(nrf_receive_cb, NULL);
