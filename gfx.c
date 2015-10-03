@@ -8,6 +8,18 @@ struct colour3 {
 };
 
 
+union anim_data {
+  struct st_fireworks {
+    int num_phase1;
+    int num_phase2;
+    struct { float x[3],y[3],z[3],vx,vy,vz,s,col; int base_frame, delay;
+      float gl_base, gl_period, gl_amp; } p1[10];
+    struct { float x,y,z,vx,vy,vz,col; int base_frame, delay;
+      float fade_factor; } p2[300];
+  } fireworks;
+};
+
+
 static inline void
 setpix(frame_t *f, uint32_t x, uint32_t y, uint32_t a,
        uint8_t r, uint8_t g, uint8_t b)
@@ -195,7 +207,7 @@ envelope(frame_t *f, uint32_t c)
 
 
 static uint32_t
-an_ghost(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+an_ghost(frame_t *f, uint32_t c, union anim_data *data __attribute__((unused)))
 {
   uint32_t a, x;
   float ph;
@@ -239,7 +251,7 @@ my_str_mk(char *dst, const char *src)
 }
 
 uint32_t
-an_supply_voltage(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+an_supply_voltage(frame_t *f, uint32_t c, union anim_data *data __attribute__((unused)))
 {
   char buf[50];
   static float voltage = 0.0f;
@@ -284,7 +296,7 @@ an_supply_voltage(frame_t *f, uint32_t c, void *st __attribute__((unused)))
 
 
 static uint32_t
-in_sdcard(const struct ledtorus_anim *self, void **out_data)
+in_sdcard(const struct ledtorus_anim *self, union anim_data *data)
 {
   const char *filename = self->init_data;
 
@@ -295,7 +307,7 @@ in_sdcard(const struct ledtorus_anim *self, void **out_data)
 
 
 static uint32_t
-an_sdcard(frame_t *f, uint32_t c, void *data __attribute__((unused)))
+an_sdcard(frame_t *f, uint32_t c, union anim_data *data __attribute__((unused)))
 {
   int res;
 
@@ -349,16 +361,6 @@ vrand(float a, float *x, float *y, float *z)
 }
 
 
-struct st_fireworks {
-  int num_phase1;
-  int num_phase2;
-  struct { float x[3],y[3],z[3],vx,vy,vz,s,col; int base_frame, delay;
-           float gl_base, gl_period, gl_amp; } p1[10];
-  struct { float x,y,z,vx,vy,vz,col; int base_frame, delay;
-           float fade_factor; } p2[300];
-};
-
-
 static const float tang_factor = 5.0f;
 
 static void
@@ -396,14 +398,9 @@ ut_fireworks_setpix(frame_t *f, float xf, float yf, float zf, float col)
 
 
 static uint32_t
-in_fireworks(const struct ledtorus_anim *self, void **out_data)
+in_fireworks(const struct ledtorus_anim *self, union anim_data *data)
 {
-  struct st_fireworks *c;
-  static struct st_fireworks anim_data;  /* ToDo: shared data pool. */
-
-  //*out_data = malloc(sizeof(struct st_fireworks));
-  *out_data = &anim_data;
-  c= (struct st_fireworks *)(*out_data);
+  struct st_fireworks *c = &data->fireworks;
   c->num_phase1 = 0;
   c->num_phase2 = 0;
   return 0;
@@ -411,11 +408,11 @@ in_fireworks(const struct ledtorus_anim *self, void **out_data)
 
 
 static uint32_t
-an_fireworks(frame_t *f, uint32_t frame, void *data)
+an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
 {
   int i,j;
 
-  struct st_fireworks *c= (struct st_fireworks *)data;
+  struct st_fireworks *c= &data->fireworks;
 
   static const int max_phase1 = sizeof(c->p1)/sizeof(c->p1[0]);
   static const int max_phase2 = sizeof(c->p2)/sizeof(c->p2[0]);
@@ -587,3 +584,21 @@ const struct ledtorus_anim anim_table[] = {
     1024, NULL, in_fireworks, an_fireworks },
 };
 const uint32_t anim_table_length = sizeof(anim_table)/sizeof(anim_table[0]);
+
+
+static union anim_data shared_anim_data;
+
+uint32_t
+anim_init(uint32_t anim_idx)
+{
+  if (!anim_table[anim_idx].init)
+    return 0;
+  return (*anim_table[anim_idx].init)(&anim_table[anim_idx], &shared_anim_data);
+}
+
+
+uint32_t
+anim_nextframe(uint32_t anim_idx, frame_t *f, uint32_t anim_state)
+{
+  return (*anim_table[anim_idx].nextframe)(f, anim_state, &shared_anim_data);
+}

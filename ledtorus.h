@@ -138,16 +138,19 @@ extern void led_decrease_intensity(void);
 extern void led_increase_intensity(void);
 
 /* gfx.c */
+union anim_data;
 extern const struct ledtorus_anim {
   const char *name;
   const char *description;
   uint32_t duration;
   void *init_data;
-  uint32_t (*init)(const struct ledtorus_anim *self, void **out_data);
-  uint32_t (*nextframe)(frame_t *f, uint32_t c, void *data);
+  uint32_t (*init)(const struct ledtorus_anim *self, union anim_data *data);
+  uint32_t (*nextframe)(frame_t *f, uint32_t c, union anim_data *data);
 } anim_table[];
 extern const uint32_t anim_table_length;
 extern void test_img1(void);
+extern uint32_t anim_init(uint32_t anim_idx);
+extern uint32_t anim_nextframe(uint32_t anim_idx, frame_t *f, uint32_t anim_state);
 
 /* font_tonc.c */
 extern const uint8_t tonc_font[8*96];

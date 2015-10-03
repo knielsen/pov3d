@@ -10,7 +10,6 @@ main(void)
   uint32_t old_frame_counter;
   uint32_t cur_anim;
   uint32_t anim_running;
-  void *cur_anim_data;
 
   setup_led();
   setup_serial();
@@ -36,7 +35,6 @@ main(void)
   old_frame_counter = 42;
   anim_running = 0;
   cur_anim = anim_table_length - 1;
-  cur_anim_data = NULL;
   for (;;)
   {
     uint32_t new_frame_counter;
@@ -63,14 +61,9 @@ main(void)
       if (cur_anim >= anim_table_length)
         cur_anim = 0;
       anim_state = 0;
-      if (anim_table[cur_anim].init)
-        anim_running = !anim_table[cur_anim].init(&anim_table[cur_anim],
-                                                  &cur_anim_data);
-      else
-        anim_running = 1;
+      anim_running = !anim_init(cur_anim);
     }
-    anim_running = !anim_table[cur_anim].nextframe(render_framebuf(),
-                                                   anim_state, cur_anim_data);
+    anim_running = !anim_nextframe(cur_anim, render_framebuf(), anim_state);
 
     ++anim_state;
     if (key_state & (1<<5))
