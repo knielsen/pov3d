@@ -3,19 +3,36 @@
 #include "ledtorus.h"
 
 
+/*
+   A factor to compensate that pixels are much smaller in the tangential
+   direction than in the raial and vertical direction.
+*/
+static const float tang_factor = 5.0f;
+
+
 struct colour3 {
   uint8_t r, g, b;
 };
 
 
+/*
+  Union with state data for all animations that need one. This way, a single
+  statically-allocated memory area can be shared among all animations.
+*/
 union anim_data {
   struct st_fireworks {
-    int num_phase1;
-    int num_phase2;
-    struct { float x[3],y[3],z[3],vx,vy,vz,s,col; int base_frame, delay;
-      float gl_base, gl_period, gl_amp; } p1[10];
-    struct { float x,y,z,vx,vy,vz,col; int base_frame, delay;
-      float fade_factor; } p2[300];
+    uint32_t num_phase1;
+    uint32_t num_phase2;
+    struct {
+      float x[3],y[3],z[3],vx,vy,vz,s,col;
+      uint32_t base_frame, delay;
+      float gl_base, gl_period, gl_amp;
+    } p1[10];
+    struct {
+      float x,y,z,vx,vy,vz,col;
+      uint32_t base_frame, delay;
+      float fade_factor;
+    } p2[300];
   } fireworks;
 };
 
@@ -28,6 +45,39 @@ setpix(frame_t *f, uint32_t x, uint32_t y, uint32_t a,
   p[0] = r;
   p[1] = g;
   p[2] = b;
+}
+
+
+/* Random integer 0 <= x < N. */
+static int
+irand(int n)
+{
+  return rand() / (RAND_MAX/n+1);
+}
+
+/* Random float 0 <= x <= N. */
+static float
+drand(float n)
+{
+  return (float)rand() / ((float)RAND_MAX/n);
+}
+
+/* Random unit vector of length a, uniform distribution in angular space. */
+static void
+vrand(float a, float *x, float *y, float *z)
+{
+  /*
+    Sample a random direction uniformly.
+
+    Uses the fact that cylinder projection of the sphere is area preserving,
+    so sample uniformly the cylinder, and project onto the sphere.
+  */
+  float v = drand(2.0f*F_PI);
+  float u = drand(2.0f) - 1.0f;
+  float r = sqrtf(1.0f - u*u);
+  *x = a*r*cosf(v);
+  *y = a*r*sinf(v);
+  *z = a*u;
 }
 
 
@@ -326,47 +376,10 @@ an_sdcard(frame_t *f, uint32_t c, union anim_data *data __attribute__((unused)))
 
 /* Fireworks animation. */
 
-/* ToDo: Make these more generic, and move up to top. */
-
-/* Random integer 0 <= x < N. */
-static int
-irand(int n)
-{
-  return rand() / (RAND_MAX/n+1);
-}
-
-/* Random float 0 <= x <= N. */
-static float
-drand(float n)
-{
-  return (float)rand() / ((float)RAND_MAX/n);
-}
-
-/* Random unit vector of length a, uniform distribution in angular space. */
 static void
-vrand(float a, float *x, float *y, float *z)
+ut_fireworks_shiftem(struct st_fireworks *c, uint32_t i)
 {
-  /*
-    Sample a random direction uniformly.
-
-    Uses the fact that cylinder projection of the sphere is area preserving,
-    so sample uniformly the cylinder, and project onto the sphere.
-  */
-  float v = drand(2.0f*F_PI);
-  float u = drand(2.0f) - 1.0f;
-  float r = sqrtf(1.0f - u*u);
-  *x = a*r*cosf(v);
-  *y = a*r*sinf(v);
-  *z = a*u;
-}
-
-
-static const float tang_factor = 5.0f;
-
-static void
-ut_fireworks_shiftem(struct st_fireworks *c, int i)
-{
-  int j;
+  uint32_t j;
 
   for (j = sizeof(c->p1[0].x)/sizeof(c->p1[0].x[0]) - 1; j > 0; --j)
   {
@@ -410,20 +423,20 @@ in_fireworks(const struct ledtorus_anim *self, union anim_data *data)
 static uint32_t
 an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
 {
-  int i,j;
+  uint32_t i, j;
 
   struct st_fireworks *c= &data->fireworks;
 
-  static const int max_phase1 = sizeof(c->p1)/sizeof(c->p1[0]);
-  static const int max_phase2 = sizeof(c->p2)/sizeof(c->p2[0]);
+  static const uint32_t max_phase1 = sizeof(c->p1)/sizeof(c->p1[0]);
+  static const uint32_t max_phase2 = sizeof(c->p2)/sizeof(c->p2[0]);
   static const float g = 0.045f;
   static const int new_freq = 25;
   static const float min_height = 4.0f;
   static const float max_height = 7.0f;
-  static const int min_start_delay = 32;
-  static const int max_start_delay = 67;
-  static const int min_end_delay = 50;
-  static const int max_end_delay = 100;
+  static const uint32_t min_start_delay = 32;
+  static const uint32_t max_start_delay = 67;
+  static const uint32_t min_end_delay = 50;
+  static const uint32_t max_end_delay = 100;
   const float V = 0.5f;
   static const float resist = 0.11f;
   static const float min_fade_factor = 0.22f;
@@ -453,11 +466,11 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
 
   for (i = 0; i < c->num_phase1; )
   {
-    int d = (int)frame - c->p1[i].base_frame;
+    uint32_t d = frame - c->p1[i].base_frame;
     if (d < c->p1[i].delay)
     {
       /* Waiting for launch - make fuse glow effect. */
-      int gl_delta = frame - c->p1[i].gl_base;
+      uint32_t gl_delta = frame - c->p1[i].gl_base;
       if (gl_delta >= c->p1[i].gl_period)
       {
         c->p1[i].gl_base = frame;
@@ -528,7 +541,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
     if (c->p2[i].z <= 0.0f)
     {
       c->p2[i].z = 0.0f;
-      if (c->p2[i].delay-- <= 0.0f)
+      if (c->p2[i].delay-- == 0)
       {
         /* Delete it. */
         c->p2[i] = c->p2[--c->num_phase2];
