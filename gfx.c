@@ -15,6 +15,29 @@ struct colour3 {
 };
 
 
+struct hsv3 {
+  uint8_t h, s, v;
+};
+static inline struct hsv3 mk_hsv3(uint8_t h, uint8_t s, uint8_t v)
+{
+  struct hsv3 res;
+  res.h = h;
+  res.s = s;
+  res.v = v;
+  return res;
+}
+
+
+static inline struct hsv3 mk_hsv3_f(float h, float s, float v)
+{
+  struct hsv3 res;
+  res.h = roundf(h*255.0f);
+  res.s = roundf(s*255.0f);
+  res.v = roundf(v*255.0f);
+  return res;
+}
+
+
 /*
   Union with state data for all animations that need one. This way, a single
   statically-allocated memory area can be shared among all animations.
@@ -24,12 +47,14 @@ union anim_data {
     uint32_t num_phase1;
     uint32_t num_phase2;
     struct {
-      float x[3],y[3],z[3],vx,vy,vz,s,col;
+      float x[3],y[3],z[3],vx,vy,vz,s;
+      struct hsv3 col;
       uint32_t base_frame, delay;
       float gl_base, gl_period, gl_amp;
     } p1[10];
     struct {
-      float x,y,z,vx,vy,vz,col;
+      float x,y,z,vx,vy,vz,hue;
+      struct hsv3 col;
       uint32_t base_frame, delay;
       float fade_factor;
     } p2[300];
@@ -391,7 +416,7 @@ ut_fireworks_shiftem(struct st_fireworks *c, uint32_t i)
 
 
 static void
-ut_fireworks_setpix(frame_t *f, float xf, float yf, float zf, float col)
+ut_fireworks_setpix(frame_t *f, float xf, float yf, float zf, struct hsv3 col)
 {
   int x = roundf(xf);
   int y = roundf(yf*tang_factor);
@@ -402,10 +427,9 @@ ut_fireworks_setpix(frame_t *f, float xf, float yf, float zf, float col)
     y -= LEDS_TANG;
   if (x >= 0 && x < LEDS_X && y >= 0 && y < LEDS_TANG && z >= 0 && z < LEDS_Y)
   {
-    int r = roundf(255.0f*col);
-    int g = roundf(255.0f*col);
-    int b = roundf(255.0f*0.7f*col);
-    setpix(f, x, (LEDS_Y-1)-z, y, r, g, b);
+    struct colour3 rgb =
+      hsv2rgb_f((float)col.h/255.0f, (float)col.s/255.0f, (float)col.v/255.0f);
+    setpix(f, x, (LEDS_Y-1)-z, y, rgb.r, rgb.g, rgb.b);
   }
 }
 
@@ -439,8 +463,8 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
   static const uint32_t max_end_delay = 100;
   const float V = 0.5f;
   static const float resist = 0.11f;
-  static const float min_fade_factor = 0.22f;
-  static const float max_fade_factor = 0.27f;
+  static const float min_fade_factor = 0.22f/15.0f;
+  static const float max_fade_factor = 0.27f/15.0f;
 
   /* Start a new one occasionally. */
   if (c->num_phase1 == 0 || (c->num_phase1 < max_phase1 && irand(new_freq) == 0))
@@ -457,7 +481,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
     c->p1[i].vy = drand(0.35f/tang_factor) - 0.175f/tang_factor;
     c->p1[i].s = min_height + drand(max_height - min_height);
     c->p1[i].vz = sqrt(2*g*c->p1[i].s);
-    c->p1[i].col = 0.5;
+    c->p1[i].col = mk_hsv3_f(0.8f, 0.0f, 0.5f);
     c->p1[i].base_frame = frame;
     c->p1[i].delay = min_start_delay + irand(max_start_delay - min_start_delay);
     c->p1[i].gl_base = frame;
@@ -479,7 +503,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
         gl_delta = 0;
       }
       float glow = c->p1[i].gl_amp*sin((float)gl_delta/c->p1[i].gl_period*F_PI);
-      c->p1[i].col = roundf(0.44f + 0.31f*glow);
+      c->p1[i].col = mk_hsv3_f(0.8f, 0.0f, 0.44f + 0.31f*glow);
       ++i;
     }
     else if (c->p1[i].z[0] > c->p1[i].s)
@@ -487,6 +511,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
       /* Kaboom! */
       /* Delete this one, and create a bunch of phase2 ones (if room). */
       int k = 10 + irand(20);
+      float common_hue = drand(6.5f);
       while (k-- > 0)
       {
         if (c->num_phase2 >= max_phase2)
@@ -505,7 +530,8 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
         c->p2[j].vx = c->p1[i].vx + vx;
         c->p2[j].vy = c->p1[i].vy + vy;
         c->p2[j].vz = c->p1[i].vz + vz;
-        c->p2[j].col = 1.0f;
+        c->p2[j].hue = common_hue < 6.0f? common_hue : drand(6.0f);
+        c->p2[j].col = mk_hsv3_f(c->p2[j].hue, 0.85f, 1.0f);
         c->p2[j].base_frame = frame;
         c->p2[j].delay = min_end_delay + irand(max_end_delay - min_end_delay);
         c->p2[j].fade_factor =
@@ -516,7 +542,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
     else
     {
       ut_fireworks_shiftem(c, i);
-      c->p1[i].col = 0.75;
+      c->p1[i].col = mk_hsv3_f(0.8f, 0.0f, 0.75f);
       c->p1[i].x[0] += c->p1[i].vx;
       c->p1[i].y[0] += c->p1[i].vy;
       c->p1[i].z[0] += c->p1[i].vz;
@@ -535,13 +561,15 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
     c->p2[i].vy -= resist*c->p2[i].vy;
     c->p2[i].vz -= resist*c->p2[i].vz + g;
 
-    float col = (1.0f/15.0f)*(15 - c->p2[i].fade_factor*(frame - c->p2[i].base_frame));
-    c->p2[i].col = col < 0.0f ? 0.0f : col;
+    float value = 1.0f - c->p2[i].fade_factor*(frame - c->p2[i].base_frame);
+    if (value < 0.0f)
+      value = 0.0f;
+    c->p2[i].col = mk_hsv3_f(c->p2[i].hue, 0.85f, value);
 
     if (c->p2[i].z <= 0.0f)
     {
       c->p2[i].z = 0.0f;
-      if (c->p2[i].delay-- == 0)
+      if (c->p2[i].delay-- == 0 || value <= 0.05f)
       {
         /* Delete it. */
         c->p2[i] = c->p2[--c->num_phase2];
