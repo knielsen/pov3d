@@ -447,7 +447,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
   {
     i = c->num_phase1++;
 
-    c->p1[i].x[0] = (float)LEDS_X/2.0f - 1.75f + drand(3.5f);
+    c->p1[i].x[0] = (float)(LEDS_X-1)/2.0f - 1.2f + drand(2.4f);
     c->p1[i].y[0] = drand((float)LEDS_TANG/tang_factor);
     c->p1[i].z[0] = 0.0f;
     for (j = 0; j < sizeof(c->p1[0].x)/sizeof(c->p1[0].x[0]) - 1; ++j)
@@ -556,7 +556,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
   cls(f);
   /* Mark out the "ground". */
   for (i = 0; i < LEDS_TANG; ++i)
-    for (j = 0; j < LEDS_X; ++j)
+    for (j = 2; j < LEDS_X-2; ++j)
       setpix(f, j, LEDS_Y-1, i, 0, 0, 17);
 
   /*
