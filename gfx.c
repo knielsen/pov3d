@@ -51,7 +51,7 @@ union anim_data {
       struct hsv3 col;
       uint32_t base_frame, delay;
       float gl_base, gl_period, gl_amp;
-    } p1[10];
+    } p1[25];
     struct {
       float x,y,z,vx,vy,vz,hue;
       struct hsv3 col;
@@ -427,8 +427,9 @@ ut_fireworks_setpix(frame_t *f, float xf, float yf, float zf, struct hsv3 col)
     y -= LEDS_TANG;
   if (x >= 0 && x < LEDS_X && y >= 0 && y < LEDS_TANG && z >= 0 && z < LEDS_Y)
   {
-    struct colour3 rgb =
-      hsv2rgb_f((float)col.h/255.0f, (float)col.s/255.0f, (float)col.v/255.0f);
+    struct colour3 rgb = hsv2rgb_f((float)col.h*(1.0f/255.0f),
+                                   (float)col.s*(1.0f/255.0f),
+                                   (float)col.v*(1.0f/255.0f));
     setpix(f, x, (LEDS_Y-1)-z, y, rgb.r, rgb.g, rgb.b);
   }
 }
@@ -454,7 +455,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
   static const uint32_t max_phase1 = sizeof(c->p1)/sizeof(c->p1[0]);
   static const uint32_t max_phase2 = sizeof(c->p2)/sizeof(c->p2[0]);
   static const float g = 0.045f;
-  static const int new_freq = 25;
+  int new_freq = 25;
   static const float min_height = 4.0f;
   static const float max_height = 7.0f;
   static const uint32_t min_start_delay = 32;
@@ -465,6 +466,25 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
   static const float resist = 0.11f;
   static const float min_fade_factor = 0.22f/15.0f;
   static const float max_fade_factor = 0.27f/15.0f;
+  float joy_angle, joy_magnitude;
+  float joy_val;
+  float global_hue = -1.0f;
+  float global_sat = 0.85f;
+  float hue_max = 1.1f;
+
+  joy_angle = joy_r_angle_mag(&joy_magnitude);
+  if (joy_magnitude > 0.8f)
+    global_hue = joy_angle * (1.0f/(2.0f*F_PI));
+  joy_val = joy_l_vert();
+  if (joy_val > 0.5f)
+    global_sat = joy_val;
+  else if (joy_val < -0.5f)
+    global_sat = joy_val + 1.0f;
+  if (key_cross_state())
+  {
+    new_freq /= 4;
+    hue_max += 5.0f;
+  }
 
   /* Start a new one occasionally. */
   if (c->num_phase1 == 0 || (c->num_phase1 < max_phase1 && irand(new_freq) == 0))
@@ -511,7 +531,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
       /* Kaboom! */
       /* Delete this one, and create a bunch of phase2 ones (if room). */
       int k = 10 + irand(20);
-      float common_hue = drand(6.5f);
+      float common_hue = global_hue >= 0.0f ? global_hue : drand(hue_max);
       while (k-- > 0)
       {
         if (c->num_phase2 >= max_phase2)
@@ -530,8 +550,8 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
         c->p2[j].vx = c->p1[i].vx + vx;
         c->p2[j].vy = c->p1[i].vy + vy;
         c->p2[j].vz = c->p1[i].vz + vz;
-        c->p2[j].hue = common_hue < 6.0f? common_hue : drand(6.0f);
-        c->p2[j].col = mk_hsv3_f(c->p2[j].hue, 0.85f, 1.0f);
+        c->p2[j].hue = common_hue <= 1.0f? common_hue : drand(1.0f);
+        c->p2[j].col = mk_hsv3_f(c->p2[j].hue, global_sat, 1.0f);
         c->p2[j].base_frame = frame;
         c->p2[j].delay = min_end_delay + irand(max_end_delay - min_end_delay);
         c->p2[j].fade_factor =
@@ -564,7 +584,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
     float value = 1.0f - c->p2[i].fade_factor*(frame - c->p2[i].base_frame);
     if (value < 0.0f)
       value = 0.0f;
-    c->p2[i].col = mk_hsv3_f(c->p2[i].hue, 0.85f, value);
+    c->p2[i].col = mk_hsv3_f(c->p2[i].hue, global_sat, value);
 
     if (c->p2[i].z <= 0.0f)
     {

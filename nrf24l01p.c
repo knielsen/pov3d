@@ -764,3 +764,29 @@ setup_nrf24l01p(void)
   /* Start receiving packets! */
   nrf_async_receive_multi_start(nrf_receive_cb, NULL);
 }
+
+
+float
+joy_r_angle_mag(float *magnitude)
+{
+  uint32_t hor_raw = key_state[3];
+  uint32_t vert_raw = key_state[4];
+  float hor = ((float)hor_raw-127.5f) * (1.0f/128.0f);
+  float vert = ((float)vert_raw-127.5f) * (1.0f/128.0f);
+  float angle;
+
+  if (magnitude)
+    *magnitude = sqrtf(hor*hor + vert*vert);
+  angle = atan2f(-vert, hor);
+  if (angle < 0.0f)
+    angle += 2.0f*F_PI;
+  return angle;
+}
+
+
+float
+joy_l_vert(void)
+{
+  float val = (127.5f - (float)key_state[6]) * (1.0f/128.0f);
+  return val;
+}

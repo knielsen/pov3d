@@ -163,6 +163,12 @@ extern const uint8_t tonc_font[8*96];
 extern volatile uint8_t key_state[19];
 extern uint32_t get_key_event(void);
 extern void setup_nrf24l01p(void);
+extern float joy_r_angle_mag(float *magnitude);
+extern float joy_l_vert(void);
+static inline uint32_t key_cross_state(void) {
+  return key_state[2] & 0x40;
+}
+
 
 /* sd_sdio.c */
 extern void setup_sd_sdio(void);
