@@ -46,6 +46,7 @@ main(void)
     } while (new_frame_counter == old_frame_counter);
     old_frame_counter = new_frame_counter;
 
+#ifdef SERIAL_DBG
     if (!(anim_state % 100))
     {
       float val;
@@ -54,6 +55,7 @@ main(void)
       val = voltage_read();
       println_float(val, 1, 3);
     }
+#endif
 
     while (!anim_running)
     {
@@ -66,7 +68,7 @@ main(void)
     anim_running = !anim_nextframe(cur_anim, render_framebuf(), anim_state);
 
     ++anim_state;
-    if (key_state & (1<<5))
+    if (key_state[0] & (1<<5))
     {
       /* Manual mode. Animation selected by keys 0 and 1. */
     }
@@ -80,11 +82,15 @@ main(void)
 
     while ((key = get_key_event()) != KEY_NOEVENT)
     {
+#ifdef SERIAL_DBG
       serial_puts("K: 0x");
       print_uint32_hex(key);
       serial_puts(" 0x");
-      serial_output_hexbyte(key_state);
+      serial_output_hexbyte(key_state[0]);
+      serial_output_hexbyte(key_state[1]);
+      serial_output_hexbyte(key_state[2]);
       serial_puts("\r\n");
+#endif
 
       if (key == (0 | KEY_EVENT_DOWN))
       {

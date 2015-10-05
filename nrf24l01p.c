@@ -16,7 +16,62 @@
 #define POV_SUBCMD_KEYPRESSES 2
 
 
-uint8_t volatile key_state;
+/*
+  State of pressed keys. Keys are active high ("1" bit means key is pressed).
+
+  Byte 0: Special keys for LED-torus (mirrored by some DualShock keys):
+
+    bit 0  button 1 / Left     (used to go to next animation)
+        1  button 2 / Right    (used to go to previous animation)
+        2  button 3 / Down     (used to decrease LED intensity)
+        3  button 4 / Up       (used to increase LED intensity)
+        4  button 5 / Select
+        5  switch 1            (used to select manual/auto mode)
+        6  switch 2
+        7  switch 3            (used to start/stop motor)
+
+  Byte 1: DualShock keys
+
+    bit 0: SELECT
+    bit 1: L3
+    bit 2  R3
+    bit 3  START
+    bit 4  Up
+    bit 5  Right
+    bit 6  Down
+    bit 7  Left
+
+   Byte 2: More DualShock keys
+    bit 0: L2
+    bit 1: R2
+    bit 2  L1
+    bit 3  R1
+    bit 4  Triangle
+    bit 5  Circle
+    bit 6  Cross
+    bit 7  Square
+
+   Byte 3: Joystick R left (0x00) -> right (0xff)
+   Byte 4: Joystick R up (0x00) -> down (0xff)
+   Byte 5: Joystick L left (0x00) -> right (0xff)
+   Byte 6: Joystick L up (0x00) -> down (0xff)
+
+   Byte 7-18: Pressure-sensitivity values (0..0xff) for the DualShock keys:
+     7: Button "right" pressure sensitivity
+     8: Button "left" pressure sensitivity
+     9: Button "up" pressure sensitivity
+     10: Button "down" pressure sensitivity
+     11: Button "triangle" pressure sensitivity
+     12: Button "circle" pressure sensitivity
+     13: Button "cross" pressure sensitivity
+     14: Button "square" pressure sensitivity
+     15: Button "L1" pressure sensitivity
+     16: Button "R1" pressure sensitivity
+     17: Button "L2" pressure sensitivity
+     18: Button "R2" pressure sensitivity
+*/
+
+uint8_t volatile key_state[19];
 #define MAX_KEY_EVENTS 16
 
 static volatile uint32_t key_events[MAX_KEY_EVENTS];
@@ -678,16 +733,17 @@ nrf_receive_cb(uint8_t *packet, void *dummy __attribute__((unused)))
   }
   else if (cmd == POV_CMD_CONFIG)
   {
-    uint8_t old_state = key_state;
-    uint8_t new_state = packet[2];
-
     if (subcmd == POV_SUBCMD_KEYPRESSES)
     {
+      uint32_t old_state = key_state[0] |
+        ((uint32_t)key_state[1] << 8) | ((uint32_t)key_state[2] << 16);
+      uint32_t new_state = packet[2] |
+        ((uint32_t)packet[3] << 8) | ((uint32_t)packet[4] << 16);
       uint32_t i;
       uint32_t diff = old_state ^ new_state;
 
-      key_state = new_state;
-      for (i = 0; i < 8; ++i)
+      memcpy((uint8_t *)key_state, &packet[2], sizeof(key_state));
+      for (i = 0; i < 24; ++i)
       {
         if (diff & (1<<i))
           enqueue_key_event(i | ((new_state & (1<<i)) ? KEY_EVENT_DOWN : 0));

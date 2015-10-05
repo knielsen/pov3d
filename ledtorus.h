@@ -5,6 +5,8 @@
 #define PCB_POV3D
 //#define LILLE_VIDUNDER
 
+//#define SERIAL_DBG
+
 #ifdef STM32F4_DISCOVERY
 #define LED_PERIPH RCC_AHB1Periph_GPIOD
 #define LED_GPIO GPIOD
@@ -158,7 +160,7 @@ extern const uint8_t tonc_font[8*96];
 /* nrf24l01p.c */
 #define KEY_EVENT_DOWN ((uint32_t)0x80000000)
 #define KEY_NOEVENT ((uint32_t)0xffffffff)
-extern volatile uint8_t key_state;
+extern volatile uint8_t key_state[19];
 extern uint32_t get_key_event(void);
 extern void setup_nrf24l01p(void);
 
