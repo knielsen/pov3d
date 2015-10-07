@@ -38,6 +38,10 @@ static inline struct hsv3 mk_hsv3_f(float h, float s, float v)
 }
 
 
+/* Number of migrating dots along one side of the migrating plane. */
+#define MIG_SIDE LEDS_Y
+
+
 /*
   Union with state data for all animations that need one. This way, a single
   statically-allocated memory area can be shared among all animations.
@@ -59,6 +63,19 @@ union anim_data {
       float fade_factor;
     } p2[300];
   } fireworks;
+
+  struct st_migrating_dots {
+    struct {
+      float x,y,z,v, hue, sat, val, new_hue, new_sat, new_val;
+      int target, delay;
+    } dots[MIG_SIDE*MIG_SIDE];
+    /* 0/1 is bottom/top, 2/3 is left/right, 4/5 is front/back. */
+    int32_t start_plane, end_plane;
+    uint32_t base_frame;
+    uint32_t wait;
+    uint32_t stage1;
+    int text_idx;
+  } migrating_dots[3];
 };
 
 
@@ -623,6 +640,406 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
 }
 
 
+/* Migrating dots animation. */
+
+
+static uint32_t
+ut_migrating_dots_get_colour(struct st_migrating_dots *c, int idx,
+                             const char glyph)
+{
+  static const int glyph_width = 8;
+  static const int glyph_height = 8;
+  if (glyph < 32 || glyph > 127)
+    return 0;
+  int x, y;
+  switch(c->end_plane)
+  {
+  case 0:
+  case 1:
+    if (c->start_plane/2 == 1)
+    {
+      x = c->dots[idx].target;
+      y = (MIG_SIDE-1) - c->dots[idx].y;
+    }
+    else
+    {
+      x = c->dots[idx].x;
+      y = (MIG_SIDE-1) - c->dots[idx].target;
+    }
+    break;
+  case 2:
+    if (c->start_plane/2 == 0)
+    {
+      x = (MIG_SIDE-1) - c->dots[idx].y;
+      y = (MIG_SIDE-1) - c->dots[idx].target;
+    }
+    else
+    {
+      x = (MIG_SIDE-1) - c->dots[idx].target;
+      y = (MIG_SIDE-1) - c->dots[idx].z;
+    }
+    break;
+  case 3:
+    if (c->start_plane/2 == 0)
+    {
+      x = c->dots[idx].y;
+      y = (MIG_SIDE-1) - c->dots[idx].target;
+    }
+    else
+    {
+      x = c->dots[idx].target;
+      y = (MIG_SIDE-1) - c->dots[idx].z;
+    }
+    break;
+  default:  /* case 4 and 5 */
+    if (c->start_plane/2 == 0)
+    {
+      x = c->dots[idx].x;
+      y = (MIG_SIDE-1) - c->dots[idx].target;
+    }
+    else
+    {
+      x = c->dots[idx].target;
+      y = (MIG_SIDE-1) - c->dots[idx].z;
+    }
+    break;
+  }
+  x = x - (MIG_SIDE-glyph_width)/2;
+  y = y - (MIG_SIDE-glyph_height)/2;
+  if (x < 0 || x >= glyph_width || y < 0 || y >= glyph_height ||
+      !(tonc_font[8*(glyph-32)+y] & (1<<x)))
+    return 0;
+  else
+    return 1;
+}
+
+
+static uint32_t
+in_migrating_dots(const struct ledtorus_anim *self __attribute__((unused)),
+                  union anim_data *data)
+{
+  struct st_migrating_dots *c = &data->migrating_dots[0];
+  uint32_t i, j;
+
+  for (j = 0; j < 3; ++j)
+  {
+    c->end_plane = 1;         /* Top; we will copy this to start_plane below. */
+    c->wait = 1000000;        /* Will trigger start of new round. */
+    c->stage1 = 0;            /* Pretend that we are at the end of stage2. */
+    c->text_idx = -3;
+    for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
+    {
+      c->dots[i].new_hue = 0.0f;
+      c->dots[i].new_sat = 0.0f;
+      c->dots[i].new_val = 1.0f;
+    }
+    ++c;
+  }
+
+  return 0;
+}
+
+
+static uint32_t
+an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
+{
+  static const int start_spread = 15;
+  static const float v_min = 0.9f;
+  static const float v_range = 1.2f;
+  static const float grav = -0.07f;
+  static const int stage1_pause = 8;
+  static const int stage2_pause = 23;
+  static const char *text = "LABITAT";
+  uint32_t i, j;
+  uint32_t stage_pause;
+  uint32_t section = 0;
+
+  struct st_migrating_dots *c = &data->migrating_dots[0];
+  cls(f);
+
+next_section:
+
+  stage_pause = section + (c->stage1 ? stage1_pause : stage2_pause);
+  if (c->wait > stage_pause)
+  {
+    c->base_frame = frame;
+    c->wait = 0;
+
+    if (c->stage1)
+    {
+      /* Move to stage 2. */
+      c->stage1 = 0;
+      for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
+      {
+        c->dots[i].delay = irand(start_spread);
+        if (c->end_plane == 0)
+          c->dots[i].v = 0;
+        else if (c->end_plane == 1)
+          c->dots[i].v = 1.4f + drand(v_range);
+        else
+          c->dots[i].v = (2*(c->end_plane%2)-1) * (v_min + drand(v_range));
+        c->dots[i].target = (MIG_SIDE-1)*(c->end_plane%2);
+      }
+    }
+    else
+    {
+      /* Start a new round. */
+      c->stage1 = 1;
+
+      /* We start where we last ended. */
+      c->start_plane = c->end_plane;
+      /*
+        Choose a plane to move to, but not the same or the one directly
+        opposite.
+      */
+      do
+        c->end_plane = irand(6);
+      while ((c->end_plane/2) == (c->start_plane/2));
+
+      /* Choose a letter to show, or blank. */
+      const char glyph = c->text_idx >= 0 ? text[c->text_idx] : 0;
+      ++c->text_idx;
+      if (c->text_idx >= (int)(strlen(text)))
+        c->text_idx = -3;
+
+      /* Choose colour. */
+      uint32_t shifted_frame1 = frame + section*(1024/3);
+      uint32_t shifted_frame2 = frame + section*(793/3);
+      float light_hue = (float)(shifted_frame1 % 1024) * (1.0f/1024.0f);
+      float dark_hue = (float)((shifted_frame1 + 180) % 1024) * (1.0f/1024);
+      float light_sat = 0.5f + (float)(shifted_frame2 % 793) * (0.5f/793.0f);
+      float dark_sat = light_sat;
+      const float light_val = 1.0f;
+      const float dark_val = 0.6f;
+
+      int idx = 0;
+      for (i = 0; i < MIG_SIDE; ++i)
+      {
+        /*
+          We will make a random permutation of each row of dots as they migrate
+          to a different plane.
+        */
+        int permute[MIG_SIDE];
+        for (j = 0; j < MIG_SIDE; ++j)
+          permute[j] = j;
+        int num_left = MIG_SIDE;
+        for (j = 0; j < MIG_SIDE; ++j)
+        {
+          int k = irand(num_left);
+          c->dots[idx].target = permute[k];
+          permute[k] = permute[--num_left];
+          int m = (MIG_SIDE-1)*(c->start_plane%2);
+          switch (c->start_plane)
+          {
+          case 0: case 1:
+            if (c->end_plane/2 == 1)
+            {
+              c->dots[idx].y = i;
+              c->dots[idx].x = j;
+            }
+            else
+            {
+              c->dots[idx].x = i;
+              c->dots[idx].y = j;
+            }
+            c->dots[idx].z = m;
+            break;
+          case 2: case 3:
+            if (c->end_plane/2 == 0)
+            {
+              c->dots[idx].y = i;
+              c->dots[idx].z = j;
+            }
+            else
+            {
+              c->dots[idx].z = i;
+              c->dots[idx].y = j;
+            }
+            c->dots[idx].x = m;
+            break;
+          case 4: case 5:
+            if (c->end_plane/2 == 0)
+            {
+              c->dots[idx].x = i;
+              c->dots[idx].z = j;
+            }
+            else
+            {
+              c->dots[idx].z = i;
+              c->dots[idx].x = j;
+            }
+            c->dots[idx].y = m;
+            break;
+          }
+          c->dots[idx].delay = irand(start_spread);
+          c->dots[idx].hue = c->dots[idx].new_hue;
+          c->dots[idx].sat = c->dots[idx].new_sat;
+          c->dots[idx].val = c->dots[idx].new_val;
+          if (ut_migrating_dots_get_colour(c, idx, glyph))
+          {
+            c->dots[idx].new_hue = dark_hue;
+            c->dots[idx].new_sat = dark_sat;
+            c->dots[idx].new_val = dark_val;
+          }
+          else
+          {
+            c->dots[idx].new_hue = light_hue;
+            c->dots[idx].new_sat = light_sat;
+            c->dots[idx].new_val = light_val;
+          }
+          if (c->start_plane == 1)
+            c->dots[idx].v = 0;
+          else if (c->start_plane == 0)
+            c->dots[idx].v = 1.4f + drand(v_range);
+          else
+            c->dots[idx].v =
+              (1.0f-(float)(2*(c->start_plane%2))) * (v_min + drand(v_range));
+          ++idx;
+        }
+      }
+    }
+  }
+
+  uint32_t plane = c->stage1 ? c->start_plane : c->end_plane;
+  int d = frame - c->base_frame;
+  int moving = 0;
+  for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
+  {
+    if (d < c->dots[i].delay)
+    {
+      ++moving;
+      continue;
+    }
+
+    float *m;
+    switch(plane)
+    {
+    case 0: case 1:
+      m = &c->dots[i].z;
+      break;
+    case 2: case 3:
+      m = &c->dots[i].x;
+      break;
+    default:  /* case 4: case 5: */
+      m = &c->dots[i].y;
+      break;
+    }
+
+    *m += c->dots[i].v;
+    if ((plane % 2 != c->stage1 && *m >= c->dots[i].target) ||
+        (plane % 2 == c->stage1 && *m <= c->dots[i].target))
+    {
+      *m = c->dots[i].target;
+    }
+    else
+    {
+      ++moving;
+      if (plane <= 1 && (c->dots[i].v <= 0.0f || c->dots[i].v + grav > 0.02f))
+        c->dots[i].v += grav;
+    }
+  }
+  if (moving == 0)
+    ++c->wait;
+
+  /* Draw the lot. */
+  int y_shift = (LEDS_TANG/3)*section;
+  for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
+  {
+    float x = c->dots[i].x;
+    float y = c->dots[i].y*tang_factor;
+    float z = c->dots[i].z;
+    int ix, iy, iz;
+    float hue, sat, val;
+    if (c->stage1)
+    {
+      hue = c->dots[i].hue;
+      sat = c->dots[i].sat;
+      val = c->dots[i].val;
+    }
+    else if (d < c->dots[i].delay)
+    {
+      float factor = (float)d/(float)c->dots[i].delay;
+      hue = c->dots[i].hue + (c->dots[i].new_hue - c->dots[i].hue)*factor;
+      sat = c->dots[i].sat + (c->dots[i].new_sat - c->dots[i].sat)*factor;
+      val = c->dots[i].val + (c->dots[i].new_val - c->dots[i].val)*factor;
+    }
+    else
+    {
+      hue = c->dots[i].new_hue;
+      sat = c->dots[i].new_sat;
+      val = c->dots[i].new_val;
+    }
+    if (plane/2 == 1)
+    {
+      if (x > (float)(LEDS_X-2) && (z < 1.0f || z > (float)(LEDS_Y-2)))
+        x = (float)(LEDS_X-2);
+      else if (x > (float)(LEDS_X-1))
+        x = (float)(LEDS_X-1);
+      else if (x < 2.0f && (z < 1.0f || z > (float)(LEDS_Y-2)))
+        x = 2.0f;
+      else if (x < 1.0f && (z < 2.0f || z > (float)(LEDS_Y-3)))
+        x = 1.0f;
+    }
+    else if (plane/2 == 0)
+    {
+      if (z < 2.0f && x < 1.0f)
+        z = 2.0f;
+      else if (z < 1.0f && (x < 2.0f || x > (float)(LEDS_X-2)))
+        z = 1.0f;
+      else if (z > (float)(LEDS_Y-3) && x < 1.0f)
+        z = (float)LEDS_Y-3;
+      else if (z > (float)(LEDS_Y-2) && (x < 2.0f || x > (float)(LEDS_X-2)))
+        z = (float)(LEDS_Y-2);
+    }
+
+    float x1, x2, y1, y2, z1, z2, in1, in2;
+    switch (plane/2)
+    {
+    case 0:
+      x1 = x2 = roundf(x);
+      y1 = y2 = roundf(y);
+      z1 = floorf(z);
+      z2 = ceilf(z);
+      in1 = z2 - z;
+      break;
+    case 1:
+      x1 = floorf(x);
+      x2 = ceilf(x);
+      y1 = y2 = roundf(y);
+      z1 = z2 = roundf(z);
+      in1 = x2 - x;
+      break;
+    default:  /* case 2 */
+      x1 = x2 = roundf(x);
+      y1 = floorf(y);
+      y2 = ceilf(y);
+      z1 = z2 = roundf(z);
+      in1 = y2 - y;
+      break;
+    }
+    in2 = 1.0f - in1;
+
+    struct colour3 rgb = hsv2rgb_f(hue, sat, in1*val);
+    ix = x1; iy = y1 + y_shift; iz = (LEDS_Y-1) - z1;
+    if (ix >= 0 && ix < LEDS_X && iz >= 0 && iz < LEDS_Y &&
+        iy >= 0 && iy < LEDS_TANG)
+      setpix(f, ix, iz, iy, rgb.r, rgb.g, rgb.b);
+    rgb = hsv2rgb_f(hue, sat, in2*val);
+    ix = x2; iy = y2 + y_shift; iz = (LEDS_Y-1) - z2;
+    if (ix >= 0 && ix < LEDS_X && iz >= 0 && iz < LEDS_Y &&
+        iy >= 0 && iy < LEDS_TANG)
+      setpix(f, ix, iz, iy, rgb.r, rgb.g, rgb.b);
+  }
+
+  ++c;
+  ++section;
+  if (section < 3)
+    goto next_section;
+
+  return 0;
+}
+
+
 const struct ledtorus_anim anim_table[] = {
   { "Status",
     "Couple of scroll-texts displaying status",
@@ -642,7 +1059,11 @@ const struct ledtorus_anim anim_table[] = {
 
   { "Fireworks",
     "Fireworks animation",
-    1024, NULL, in_fireworks, an_fireworks },
+    2048, NULL, in_fireworks, an_fireworks },
+
+  { "MigratingDots",
+    "Migrating dots animation",
+    2048, NULL, in_migrating_dots, an_migrating_dots },
 };
 const uint32_t anim_table_length = sizeof(anim_table)/sizeof(anim_table[0]);
 
