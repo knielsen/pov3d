@@ -63,6 +63,16 @@ setup_hall(void)
 volatile uint32_t prev_hall = 0;
 volatile uint32_t prev_hall_period = 0;
 
+#ifdef DEBUG_SPEED_STABILITY
+/*
+  A buffer in the otherwise unused core-coupled SRAM.
+  In this buffer, we store the measured period of each rotation.
+  This can then be dumped with GDB, to debug motor speed stability.
+*/
+uint32_t *const prev_hall_period_buffer = (void *)0x10000000;
+uint32_t prev_hall_period_ptr = 0;
+#endif
+
 void
 TIM2_IRQHandler(void)
 {
@@ -71,6 +81,10 @@ TIM2_IRQHandler(void)
   val = TIM2->CCR4;               /* Reading CCR4 also clears the interrupt */
   prev_hall_period = val - prev_hall;
   prev_hall = val;
+#ifdef DEBUG_SPEED_STABILITY
+  if (prev_hall_period_ptr < 16384)
+    prev_hall_period_buffer[prev_hall_period_ptr++] = prev_hall_period;
+#endif
 }
 
 
