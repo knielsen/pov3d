@@ -55,13 +55,13 @@ union anim_data {
       struct hsv3 col;
       uint32_t base_frame, delay;
       float gl_base, gl_period, gl_amp;
-    } p1[25];
+    } p1[50];
     struct {
       float x,y,z,vx,vy,vz,hue;
       struct hsv3 col;
       uint32_t base_frame, delay;
       float fade_factor;
-    } p2[300];
+    } p2[500];
   } fireworks;
 
   struct st_migrating_dots {
@@ -472,7 +472,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
   static const uint32_t max_phase1 = sizeof(c->p1)/sizeof(c->p1[0]);
   static const uint32_t max_phase2 = sizeof(c->p2)/sizeof(c->p2[0]);
   static const float g = 0.045f;
-  int new_freq = 25;
+  int new_freq = 18;
   static const float min_height = 4.0f;
   static const float max_height = 7.0f;
   static const uint32_t min_start_delay = 32;
@@ -487,7 +487,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
   float joy_val;
   float global_hue = -1.0f;
   float global_sat = 0.85f;
-  float hue_max = 1.1f;
+  float hue_max = 1.3f;
 
   joy_angle = joy_r_angle_mag(&joy_magnitude);
   if (joy_magnitude > 0.8f)
@@ -517,7 +517,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
     c->p1[i].vx = drand(0.35f) - 0.175f;
     c->p1[i].vy = drand(0.35f/tang_factor) - 0.175f/tang_factor;
     c->p1[i].s = min_height + drand(max_height - min_height);
-    c->p1[i].vz = sqrt(2*g*c->p1[i].s);
+    c->p1[i].vz = sqrtf(2*g*c->p1[i].s);
     c->p1[i].col = mk_hsv3_f(0.8f, 0.0f, 0.5f);
     c->p1[i].base_frame = frame;
     c->p1[i].delay = min_start_delay + irand(max_start_delay - min_start_delay);
@@ -1040,30 +1040,59 @@ next_section:
 }
 
 
+__attribute__((unused))
+static uint32_t
+an_stability_test(frame_t *f, uint32_t c __attribute__((unused)),
+                  union anim_data *data __attribute__((unused)))
+{
+  uint32_t a, x, y;
+
+  cls(f);
+  for (a = 0; a < LEDS_TANG; a+= 34)
+  {
+    struct colour3 col = hsv2rgb_f((float)a*(1.0f/(float)LEDS_TANG),
+                                   0.0f, 1.0f);
+    for (x = 0; x < LEDS_X; ++x)
+    {
+      for (y = 0; y < LEDS_Y; ++y)
+        setpix(f, x, y, a, col.r, col.g, col.b);
+    }
+  }
+
+  return 0;
+}
+
+
 const struct ledtorus_anim anim_table[] = {
   { "Status",
     "Couple of scroll-texts displaying status",
-    512, NULL, NULL, an_supply_voltage },
+    750, NULL, NULL, an_supply_voltage },
 
   { "Ghost",
     "Animated cosine-wave",
-    512, NULL, NULL, an_ghost },
-
-  { "Simplex1",
-    "First prototype Simplex Noise animation",
-    0, "SIMPLEX1.P3D", in_sdcard, an_sdcard },
-
-  { "Simplex2",
-    "Second prototype Simplex Noise animation",
-    0, "SIMPLEX2.P3D", in_sdcard, an_sdcard },
+    750, NULL, NULL, an_ghost },
 
   { "Fireworks",
     "Fireworks animation",
-    2048, NULL, in_fireworks, an_fireworks },
+    1000, NULL, in_fireworks, an_fireworks },
+
+  { "Simplex2",
+    "Second prototype Simplex Noise animation",
+    750, "SIMPLEX2.P3D", in_sdcard, an_sdcard },
 
   { "MigratingDots",
     "Migrating dots animation",
-    2048, NULL, in_migrating_dots, an_migrating_dots },
+    750, NULL, in_migrating_dots, an_migrating_dots },
+
+  { "Simplex1",
+    "First prototype Simplex Noise animation",
+    750, "SIMPLEX1.P3D", in_sdcard, an_sdcard },
+
+/*
+  { "StabilityTest",
+    "Test image to help debug image stability",
+    512, NULL, NULL, an_stability_test },
+*/
 };
 const uint32_t anim_table_length = sizeof(anim_table)/sizeof(anim_table[0]);
 
