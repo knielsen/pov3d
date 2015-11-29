@@ -79,7 +79,7 @@ setup_scanplane_timer(void)
   TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
   TIM_TimeBaseInit(TIM6, &TIM_TimeBaseStructure);
 
-  TIM_ARRPreloadConfig(TIM6, ENABLE);
+  TIM_ARRPreloadConfig(TIM6, DISABLE);
   TIM_SelectOnePulseMode(TIM6, TIM_OPMode_Repetitive);
   TIM_UpdateRequestConfig(TIM6, TIM_UpdateSource_Regular);
   TIM_UpdateDisableConfig(TIM6, DISABLE);
@@ -115,24 +115,28 @@ trigger_softint(void)
 static uint32_t scanplane_buffers[2][3][25];
 static uint8_t scanbuffer_idx = 0;
 static uint8_t init_counter = 0;
+static uint8_t hall_sync_adj = 0;
 static volatile uint32_t frame_counter = 0;
 static volatile uint32_t change_intensity_flag = 0;
+static uint32_t generate_scan_counter = 0;
 
 void TIM6_DAC_IRQHandler(void)
 {
   if (TIM6->SR & TIM_IT_Update)
   {
     uint32_t hall_timer, c, loc_prev_hall;
+    uint32_t old_fraction, new_fraction;
     uint8_t idx;
     uint8_t ic;
-    uint8_t new_round;
-    static uint8_t saved_new_round = 0;
     static uint32_t saved_prev_hall = 0;
+    static uint32_t period_int = NOMINAL_PERIOD;
+    static uint32_t period_frac = 0;
+    static uint32_t fractional_period = 0x7fffffff;
 
+    hall_timer = current_hall_timer();
     ic = init_counter;
     if (ic >= 2)
       latch_scanplanes();
-    hall_timer = current_hall_timer();
 
     idx = scanbuffer_idx;
     if (ic >= 2 && !is_tlc_dma_done())
@@ -155,46 +159,125 @@ void TIM6_DAC_IRQHandler(void)
     scanbuffer_idx = idx;
 
     c = scan_counter;
-    if (c == 0)
-      saved_new_round = new_round = 1;
-    else
-      new_round = saved_new_round;
     loc_prev_hall = prev_hall;
-    if (new_round && loc_prev_hall != saved_prev_hall)
+    if (loc_prev_hall != saved_prev_hall)
     {
       /*
-        Adjust timer period as needed to remain fixed with respect to the
-        Hall sensor trigger.
-      */
-      uint32_t hall_period, remain_scanplanes, remain_time;
-      uint32_t new_period;
+        We got the hall-sensor signal since last scanplane interrupt.
+        Timers are set up to target that the hall signal comes at exactly the
+        same time as the scanplane interrupt that needs to latch scanplane
+        a=(LEDS_TANG-3) / generate scanplane a=(LEDS_TANG-1). Since we
+        increment the scan_counter variable before, this corresponds to
+        scan_counter==LEDS_TANG-2.
 
-      hall_period = prev_hall_period;
-      remain_scanplanes = (LEDS_TANG-1) - c;
-      if (remain_scanplanes == 0)
+        However, motor speed jitter can cause the hall signal to arrive
+        slightly earlier or later, and we want to adjust scanplane interrupt
+        period to adjust for this jitter, in order to make the LED pattern as
+        stable as possible. The hall signal may be detected in interrupt
+        scan_counter==LEDS_TANG-2 or scan_counter==LEDS_TANG-1 (or other
+        values if the motor speed has a lot of jitter). In either case, we
+        adjust the coming scanplane interrupt periods to try and the get
+        interrupt for scan_counter==1 to hit exactly 3 voxels after the
+        hall signal, so we get stable LEDs from that point on.
+      */
+      if (c < LEDS_TANG-2)
       {
-        remain_scanplanes = LEDS_TANG;
-        remain_time = hall_period;
+        generate_scan_counter = c+1;
+        scan_counter = LEDS_TANG-1;
+      }
+      else if (c == LEDS_TANG-2)
+      {
+        generate_scan_counter = scan_counter = c+1;
       }
       else
-        remain_time = loc_prev_hall + hall_period - hall_timer;
-      new_period = (remain_time + remain_scanplanes/2) / remain_scanplanes;
-      if (new_period < MIN_PERIOD || new_period > MAX_PERIOD)
-        new_period = NOMINAL_PERIOD;
-      TIM6->ARR = new_period;
+      {
+        generate_scan_counter = scan_counter = 0;
+        saved_prev_hall = loc_prev_hall;
+      }
+      if (!hall_sync_adj)
+      {
+        uint32_t hall_period = prev_hall_period;
+        uint32_t target_time;
+        uint32_t ints_remain;
+        float period;
+        ints_remain = ((c == LEDS_TANG-1) ? 2 : 3);
+        target_time = loc_prev_hall + 3*hall_period/LEDS_TANG - hall_timer;
+        period = (float)target_time/(float)ints_remain;
+        period_int = (uint32_t)period;
+        if (hall_period > 0x50000000 ||
+            period_int < 1500 || period_int > MAX_PERIOD)
+        {
+          period_int = NOMINAL_PERIOD;
+          period_frac = 0;
+        }
+        else
+        {
+          period_frac = (uint32_t)(4294967296.0f*(period - period_int));
+        }
+        hall_sync_adj = 1;
+      }
+    }
+    else
+    {
+      if (c == 1)
+      {
+        /*
+          When we got the hall signal, we adjusted pwm interrupt frequency to
+          make this interrupt arrive synchronised with that hall signal. Now
+          adjust again, trying to hit the following hall signal as closely
+          as possible to in (LEDS_TANG-3) interrupts, assuming constant motor
+          speed.
 
-      saved_new_round = 0;
-      saved_prev_hall = loc_prev_hall;
+          This interrupt occured at time hall_timer. We want to hit
+          (prev_hall + prev_hall_period) in (LEDS_TANG-3) interrupts. So each
+          interrupt should occur with an interval of
+          (prev_hall + prev_hall_period - hall_timer) / (LEDS_TANG-3).
+          But cap that reasonably so we do not overflow the 16-bit timer
+          registers, nor try to take interrupts far too often, in case of
+          glitchy hall readings.
+        */
+        uint32_t hall_period = prev_hall_period;
+        uint32_t target_time = loc_prev_hall + hall_period - hall_timer;
+        float period = (float)target_time/(float)(LEDS_TANG-3);
+        period_int = (uint32_t)period;
+        if (period_int < MIN_PERIOD || period_int > MAX_PERIOD)
+        {
+          period_int = NOMINAL_PERIOD;
+          period_frac = 0;
+        }
+        else
+        {
+          period_frac = 4294967296.0f*(period - period_int);
+        }
+        hall_sync_adj = 0;
+      }
+      if (c < LEDS_TANG-1)
+      {
+        generate_scan_counter = scan_counter = c+1;
+      }
+      else
+      {
+        /*
+          We reached the end of the frame without getting any hall signal.
+          This means that the hall signal is later than we expected, so the
+          motor is apparently moving slower than in previous rotation.
+          So put in filler scanplanes until next hall signal.
+        */
+        generate_scan_counter = LEDS_TANG-1;
+      }
     }
 
     /*
-      Now do the rest of the processing (preparation of the next scanplane to
-      shift out to TLCs) in a low-priority software interrupt, allowing more
-      time-critical stuff to interrupt it.
+      Set the period for the next PWM interrupt. Uses the variable
+      fractional_period to keep track of the sub-cycle error and correct the
+      period adding one occasionally to adjust for rounding error.
     */
+    old_fraction = fractional_period;
+    new_fraction = old_fraction + period_frac;
+    TIM6->ARR = period_int + (new_fraction < old_fraction);
+    fractional_period = new_fraction;
     trigger_softint();
-
-    TIM6->SR = (uint16_t)~TIM_IT_Update;
+    TIM6->SR = (uint16_t)~TIM_IT_Update;        /* Clear the interrupt */
   }
 }
 
@@ -209,9 +292,15 @@ void
 EXTI0_IRQHandler(void)
 {
   if (EXTI->PR & EXTI_Line0) {
-    uint32_t c = scan_counter;
+    uint32_t c = generate_scan_counter;
     uint8_t idx = scanbuffer_idx;
     uint32_t intensity_flag;
+
+    if (c == 0)
+    {
+      ++frame_counter;
+      flip_framebuf();
+    }
 
     intensity_flag = change_intensity_flag;
     if (intensity_flag)
@@ -242,14 +331,6 @@ EXTI0_IRQHandler(void)
                        scanplane_buffers[idx][1],
                        scanplane_buffers[idx][2]);
     }
-    ++c;
-    if (c >= LEDS_TANG)
-    {
-      c = 0;
-      ++frame_counter;
-      flip_framebuf();
-    }
-    scan_counter = c;
 
     /* Clear the pending interrupt event. */
     EXTI->PR = EXTI_Line0;
