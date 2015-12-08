@@ -132,6 +132,7 @@ void TIM6_DAC_IRQHandler(void)
     static uint32_t period_int = NOMINAL_PERIOD;
     static uint32_t period_frac = 0;
     static uint32_t fractional_period = 0x7fffffff;
+    static uint32_t delayed_hall = 0;
 
     hall_timer = current_hall_timer();
     ic = init_counter;
@@ -193,6 +194,7 @@ void TIM6_DAC_IRQHandler(void)
       {
         generate_scan_counter = scan_counter = 0;
         saved_prev_hall = loc_prev_hall;
+        delayed_hall = 0;
       }
       if (!hall_sync_adj)
       {
@@ -257,13 +259,31 @@ void TIM6_DAC_IRQHandler(void)
       }
       else
       {
-        /*
-          We reached the end of the frame without getting any hall signal.
-          This means that the hall signal is later than we expected, so the
-          motor is apparently moving slower than in previous rotation.
-          So put in filler scanplanes until next hall signal.
-        */
-        generate_scan_counter = LEDS_TANG-1;
+        if (delayed_hall >= LEDS_TANG*FRAMERATE/4)
+        {
+          /*
+            If we do not receive any hall signal, fall back to using a fixed
+            period which approximately matches what the motorcontroller aims
+            for.
+            This way, we can get reasonable behaviour even without any hall
+            sensor or corresponding magnet, though the image will drift
+            slowly over time, in the tangential direction.
+          */
+          period_int = NOMINAL_PERIOD;
+          period_frac = 0;
+          generate_scan_counter = scan_counter = 0;
+        }
+        else
+        {
+          /*
+            We reached the end of the frame without getting any hall signal.
+            This means that the hall signal is later than we expected, so the
+            motor is apparently moving slower than in previous rotation.
+            So put in filler scanplanes until next hall signal.
+          */
+          generate_scan_counter = LEDS_TANG-1;
+          ++delayed_hall;
+        }
       }
     }
 
