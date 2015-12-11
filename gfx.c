@@ -14,6 +14,7 @@ struct colour3 {
   uint8_t r, g, b;
 };
 
+struct torus_xz { float x, z; };
 
 struct hsv3 {
   uint8_t h, s, v;
@@ -1063,6 +1064,143 @@ an_stability_test(frame_t *f, uint32_t c __attribute__((unused)),
 }
 
 
+__attribute__((unused))
+static uint32_t
+an_stability_test2(frame_t *f, uint32_t c __attribute__((unused)),
+                   union anim_data *data __attribute__((unused)))
+{
+  uint32_t a;
+
+  cls(f);
+  for (a = 0; a < LEDS_TANG; ++a)
+  {
+    struct colour3 col;
+
+    if ((a%5) == 0)
+    {
+      col = hsv2rgb_f((float)a*(1.0f/(float)LEDS_TANG), 1.0f, 1.0f);
+      setpix(f, LEDS_X-1, LEDS_Y/2, a, col.r, col.g, col.b);
+    }
+    col = hsv2rgb_f((float)(a%6)*(1.0f/6.0f), 1.0f, 1.0f);
+    setpix(f, LEDS_X-1, LEDS_Y/2-2, a, col.r, col.g, col.b);
+    if ((a%3) == 0)
+    {
+      setpix(f, LEDS_X-1, LEDS_Y/2+2, a, 0, 255, 0);
+    }
+    if ((a%2) == 0)
+    {
+      setpix(f, LEDS_X-1, LEDS_Y/2+1, a, 255, 0, 0);
+    }
+  }
+
+  return 0;
+}
+
+
+__attribute__((unused))
+static uint32_t
+an_test_img2(frame_t *f, uint32_t c __attribute__((unused)),
+             union anim_data *data __attribute__((unused)))
+{
+  uint32_t x, y, a;
+
+  cls(f);
+  for (a = 0; a < LEDS_TANG; ++a)
+  {
+    struct colour3 col;
+    col = hsv2rgb_f((float)(c % (FRAMERATE*5))/(float)(FRAMERATE*5), 1.0f, 1.0f);
+    for (y = 0; y < LEDS_Y; ++y)
+      for (x = 0; x < LEDS_X; ++x)
+        setpix(f, x, y, a, col.r, col.g, col.b);
+  }
+
+  return 0;
+}
+
+
+/*
+  Compute rectangular coordinates in the horizontal plane, taking into account
+  the offset of the innermost LEDs from the center.
+*/
+static struct torus_xz
+torus_polar2rect(float x, float a)
+{
+  struct torus_xz res;
+  float angle = a * (F_PI*2.0f/(float)LEDS_TANG);
+  res.x = (x+2.58f)*cosf(angle);
+  res.z = (x+2.58f)*sinf(angle);
+  return res;
+}
+
+
+/*
+  Distance from point (x,y,z) to plane with normal (nx,ny,nz) and passing
+  through the point (x0,y0,z0). The normal should be of unit length.
+
+  Returns the signed distance, which is positive if the point is on the side
+  of the plane pointed to by the normal.
+*/
+static float
+dist_point_plane(float x, float y, float z,
+                 float nx, float ny, float nz,
+                 float x0, float y0, float z0)
+{
+  float dx = x - x0;
+  float dy = y - y0;
+  float dz = z - z0;
+  return nx*dx + ny*dy + nz*dz;
+}
+
+
+static uint32_t
+an_planetest(frame_t *f, uint32_t frame,
+             union anim_data *data __attribute__((unused)))
+{
+  static const float thick = 0.5f;
+  uint32_t i, j, k;
+  float x, y, z;
+  float dist;
+  float nx, ny, nz;
+  float norm, amp, angle, dummy;
+
+  amp = 5.0f*sinf((2.0f*F_PI)*modff((float)frame*0.023f, &dummy));
+  angle = (2.0f*F_PI)*modff((float)frame*0.0171f, &dummy);
+  nx = amp*cosf(angle);
+  nz = amp*sin(angle);
+  ny = 8.0f;
+  norm = sqrtf(nx*nx + ny*ny + nz*nz);
+  nx /= norm; ny /= norm; nz /= norm;
+
+  cls(f);
+  for (k = 0; k < LEDS_TANG; ++k)
+  {
+    for (i = 0; i < LEDS_X; ++i)
+    {
+      struct torus_xz rect_xz;
+
+      rect_xz = torus_polar2rect((float)i, (float)k);
+      x = rect_xz.x;
+      z = rect_xz.z;
+      for (j = 0; j < LEDS_Y; ++j)
+      {
+        y = j;
+
+        dist = dist_point_plane(x, y, z,
+                                nx, ny, nz,
+                                0.0f, 3.0f, 0.0f);
+        if (fabsf(dist) > -thick && fabsf(dist) < thick)
+        {
+          struct colour3 col = hsv2rgb_f(0.0f, 0.0f, 1.0f-(1.0f/thick)*fabs(dist));
+          setpix(f, i, j, k, col.r, col.g, col.b);
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+
+
 const struct ledtorus_anim anim_table[] = {
   { "Status",
     "Couple of scroll-texts displaying status",
@@ -1088,10 +1226,21 @@ const struct ledtorus_anim anim_table[] = {
     "First prototype Simplex Noise animation",
     750, "SIMPLEX1.P3D", in_sdcard, an_sdcard },
 
+  { "PlaneTest",
+    "Plane/polygon drawing test",
+    512, NULL, NULL, an_planetest },
 /*
   { "StabilityTest",
     "Test image to help debug image stability",
     512, NULL, NULL, an_stability_test },
+
+  { "StabilityTest2",
+    "Another test image to help debug image stability",
+    512, NULL, NULL, an_stability_test2 },
+
+  { "TestImg2",
+    "Simple A-constant test image to test new LedTorus PCBs",
+    250, NULL, NULL, an_test_img2 },
 */
 };
 const uint32_t anim_table_length = sizeof(anim_table)/sizeof(anim_table[0]);
