@@ -356,7 +356,7 @@ an_supply_voltage(frame_t *f, uint32_t c, union anim_data *data __attribute__((u
 
   cls(f);
   if (voltage == 0.0f || (c%64) == 0)
-    voltage = voltage_read();
+    voltage = voltage_read_vrefint_adjust();
   p = my_str_mk(buf, "Supply: ");
   float_to_str(p, voltage, 1, 3);
   p = my_str_mk(p+strlen(p), "V");

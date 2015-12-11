@@ -125,6 +125,7 @@ calc_time(uint32_t start)
 extern void config_adc(void);
 extern uint32_t adc_read(void);
 extern float voltage_read(void);
+extern float voltage_read_vrefint_adjust(void);
 
 /* tlc.c */
 extern uint8_t led_intensity;

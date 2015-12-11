@@ -46,6 +46,7 @@ config_adc(void)
   ADC_InitStructure.ADC_NbrOfConversion = 1;
   ADC_Init(ADC1, &ADC_InitStructure);
 
+  ADC_TempSensorVrefintCmd(ENABLE);
   ADC_Cmd(ADC1, ENABLE);
 }
 
@@ -61,6 +62,50 @@ adc_read(void)
     ;
 
   return ADC_GetConversionValue(ADC1);
+}
+
+
+float
+voltage_read_vrefint_adjust(void)
+{
+  uint16_t adc_bat, adc_vrefint;
+
+  /* Do an ADC measurement of the battery voltage. */
+  ADC_RegularChannelConfig(ADC1, ADC_Channel_10, 1, ADC_SampleTime_480Cycles);
+  ADC_SoftwareStartConv(ADC1);
+  while (!ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC))
+    ;
+  adc_bat = ADC_GetConversionValue(ADC1);
+
+  /* Do a corresponding measurement of the Vrefint internal 1.2V reference. */
+  ADC_RegularChannelConfig(ADC1, ADC_Channel_17, 1, ADC_SampleTime_480Cycles);
+  ADC_SoftwareStartConv(ADC1);
+  while (!ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC))
+    ;
+  adc_vrefint = ADC_GetConversionValue(ADC1);
+
+  /*
+    The battery voltage is on a 32/10 voltage divider. The ADC reference
+    voltage is the 3.3V VCC from the LDO.
+
+    If the battery voltage drops low (<3.6V typical according to datasheet,
+    depends on load, temperature, etc.), then the LDO may not be able to
+    maintain output voltage and VCC (and hence ADC reference voltage) could
+    drop below the expected 3.3V.
+
+    By measuring the internal 1.2 V reference, we can detect this and adjust
+    the measurement accordingly. Otherwise, we would overestimate the battery
+    voltage as the LDO output drops below the nominal 3.3V.
+
+    Vrefint = adc_vrefint/4095*Vref = 1.21V
+    V_battery = adc_bat/4095*Vref*(32/10)
+
+    So we can take Vref = 1.21V*4095/adc_vrefint, and hence corrected battery
+    voltage as:
+
+    V_bat = adc_bat/adc_vrefint*(32/10*1.21V)
+  */
+  return (float)adc_bat / (float)adc_vrefint * (32.0f/10.0f*1.21f);
 }
 
 
