@@ -1118,6 +1118,24 @@ an_test_img2(frame_t *f, uint32_t c __attribute__((unused)),
 }
 
 
+__attribute__((unused))
+static uint32_t
+an_test_img3(frame_t *f, uint32_t c __attribute__((unused)),
+             union anim_data *data __attribute__((unused)))
+{
+  uint32_t x, y, a;
+
+  for (a = 0; a < LEDS_TANG; ++a)
+  {
+    for (y = 0; y < LEDS_Y; ++y)
+      for (x = 0; x < LEDS_X; ++x)
+        setpix(f, x, y, a, 255, 255, 255);
+  }
+
+  return 0;
+}
+
+
 /*
   Compute rectangular coordinates in the horizontal plane, taking into account
   the offset of the innermost LEDs from the center.
@@ -1241,6 +1259,10 @@ const struct ledtorus_anim anim_table[] = {
   { "TestImg2",
     "Simple A-constant test image to test new LedTorus PCBs",
     250, NULL, NULL, an_test_img2 },
+
+  { "TestImg3",
+    "Test-image with _all_ LEDs constant on at maximum",
+    250, NULL, NULL, an_test_img3 },
 */
 };
 const uint32_t anim_table_length = sizeof(anim_table)/sizeof(anim_table[0]);
