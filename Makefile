@@ -4,7 +4,7 @@ OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o \
   gfx.o font_tonc.o nrf24l01p.o sd_sdio.o hall.o \
   stm324xg_eval_sdio_sd.o ev_fat.o
 
-STM_DIR=/home/knielsen/devel/study/stm32f4/STM32F4xx_DSP_StdPeriph_Lib_V1.5.1
+STM_DIR=/kvm/src/STM32F4xx_DSP_StdPeriph_Lib_V1.6.1
 STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
 vpath %.c $(STM_SRC)
 STM_OBJS = system_stm32f4xx.o
@@ -46,7 +46,7 @@ LINKSCRIPT=$(TARGET).ld
 
 ARCH_FLAGS=-mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -ffunction-sections -fdata-sections -ffast-math
 
-CFLAGS=-ggdb -O2 -std=c99 -Wall -Wextra -Warray-bounds -Wno-unused-parameter $(ARCH_FLAGS) $(INC) -DSTM32F40XX -DUSE_STDPERIPH_DRIVER
+CFLAGS=-ggdb -O2 -std=c99 -Wall -Wextra -Warray-bounds -Wno-unused-parameter $(ARCH_FLAGS) $(INC) -DSTM32F469_479xx -DUSE_STDPERIPH_DRIVER
 LDFLAGS=-Wl,--gc-sections -lm
 
 
@@ -69,6 +69,7 @@ $(STARTUP_OBJ): $(STARTUP_SRC)
 
 nrf24l01p.o: nrf24l01p.h
 stm324xg_eval_sdio_sd.c: stm324xg_eval_sdio_sd.h
+sd_sdio.c: stm324xg_eval_sdio_sd.h
 
 stm324xg_eval_sdio_sd.h: $(ST_SDIO_SD_H)
 	ln -s $< $@
@@ -80,10 +81,12 @@ stm324xg_eval_sdio_sd.c: $(ST_SDIO_SD_C)
 	$(OBJCOPY) -O binary $< $@
 
 flash: $(TARGET).bin
-	st-flash write $(TARGET).bin 0x8004000
+	#st-flash write $(TARGET).bin 0x8004000
+	st-flash write $(TARGET).bin 0x8000000
 
 clean:
-	rm -f $(OBJS) $(STM_OBJS) $(TARGET).elf $(TARGET).bin $(STARTUP_OBJ)
+	rm -f $(OBJS) $(STM_OBJS) $(TARGET).elf $(TARGET).bin $(STARTUP_OBJ) \
+		stm324xg_eval_sdio_sd.c stm324xg_eval_sdio_sd.h
 
 tty:
 	stty -F/dev/stellaris raw -echo -hup cs8 -parenb -cstopb 115200

@@ -2,7 +2,8 @@
 #include <string.h>
 #include <stm32f4xx.h>
 
-#define PCB_POV3D
+//#define PCB_POV3D
+#define PCB_POV3D_2
 //#define LILLE_VIDUNDER
 
 //#define SERIAL_DBG
@@ -74,7 +75,7 @@ typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
 #define MCU_HZ 168000000
 
 
-/* misc.c */
+/* my_misc.c */
 extern void delay(__IO uint32_t nCount);
 
 /* led.c */

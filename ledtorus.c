@@ -15,20 +15,28 @@ main(void)
   setup_serial();
 
   serial_puts("\r\n\r\nPOV3D Copyright 2015 Kristian Nielsen\r\n");
-  serial_puts("Setting up TLCs...\r\n");
-  setup_spi();
-  init_tlc();
-  serial_puts("Configuring ADC...\r\n");
-  config_adc();
-  serial_puts("Starting timers...\r\n");
-  setup_timers();
-  serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
-  setup_nrf24l01p();
-  serial_puts("Setting up SD card...\r\n");
-  setup_sd_sdio();
-  serial_puts("Setting up Hall sensor...\r\n");
-  setup_hall();
+//  serial_puts("Setting up TLCs...\r\n");
+//  setup_spi();
+//  init_tlc();
+//  serial_puts("Configuring ADC...\r\n");
+//  config_adc();
+//  serial_puts("Starting timers...\r\n");
+//  setup_timers();
+//  serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
+//  setup_nrf24l01p();
+//  serial_puts("Setting up SD card...\r\n");
+//  setup_sd_sdio();
+//  serial_puts("Setting up Hall sensor...\r\n");
+//  setup_hall();
   serial_puts("Setup done, starting loop...\r\n");
+
+  for (;;)
+  {
+    led_on();
+    delay(MCU_HZ/3/4);
+    led_off();
+    delay(MCU_HZ/3/4);
+  }
 
   anim_state = 0;
   test_img1();
