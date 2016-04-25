@@ -1,6 +1,12 @@
 #include <ledtorus.h>
 
 /*
+  Define this for motors that are designed for counter-clockwise spin
+  direction.
+*/
+//#define COUNTER_CLOCKWISE
+
+/*
   Gamma correction, mapping frame buffer intensity 0..255 into
   12-bit liniar gray-scale PWM-value 0..4095.
 
@@ -154,6 +160,9 @@ make_scan_planes(uint32_t angle,
   uint8_t (*f)[LEDS_Y*LEDS_X*LEDS_TANG][3] = get_framebuf(1 - render_idx);
   uint32_t t, i;
 
+#ifdef COUNTER_CLOCKWISE
+  angle=(LEDS_TANG-1)-angle;
+#endif
   for (t = 0; t < 3; ++t)
   {
     uint16_t *map = &tlc_map[t][0];
