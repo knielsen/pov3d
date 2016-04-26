@@ -18,8 +18,8 @@ main(void)
 //  serial_puts("Setting up TLCs...\r\n");
 //  setup_spi();
 //  init_tlc();
-//  serial_puts("Configuring ADC...\r\n");
-//  config_adc();
+  serial_puts("Configuring ADC...\r\n");
+  config_adc();
 //  serial_puts("Starting timers...\r\n");
 //  setup_timers();
 //  serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
@@ -32,10 +32,14 @@ main(void)
 
   for (;;)
   {
+    float val;
+
     led_on();
     delay(MCU_HZ/3/4);
     led_off();
     delay(MCU_HZ/3/4);
+    val = voltage_read_vrefint_adjust();
+    println_float(val, 1, 3);
   }
 
   anim_state = 0;
