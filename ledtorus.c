@@ -39,6 +39,7 @@ main(void)
     led_off();
     delay(MCU_HZ/3/4);
     val = voltage_read_vrefint_adjust();
+    serial_puts("Battery voltage: ");
     println_float(val, 1, 3);
   }
 
