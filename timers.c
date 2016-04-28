@@ -428,7 +428,8 @@ void
 setup_timers(void)
 {
   setup_systick();
-  setup_gsclks();
-  setup_scanplane_timer();
-  setup_softint();
+  /* ToDo */
+//  setup_gsclks();
+//  setup_scanplane_timer();
+//  setup_softint();
 }

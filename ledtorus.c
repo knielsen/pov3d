@@ -20,10 +20,10 @@ main(void)
 //  init_tlc();
   serial_puts("Configuring ADC...\r\n");
   config_adc();
-//  serial_puts("Starting timers...\r\n");
-//  setup_timers();
-//  serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
-//  setup_nrf24l01p();
+  serial_puts("Starting timers...\r\n");
+  setup_timers();
+  serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
+  setup_nrf24l01p();
 //  serial_puts("Setting up SD card...\r\n");
 //  setup_sd_sdio();
 //  serial_puts("Setting up Hall sensor...\r\n");
