@@ -23,14 +23,24 @@ setup_tlc_spi_dma()
 
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, ENABLE);
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOF, ENABLE);
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOG, ENABLE);
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOH, ENABLE);
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI2, ENABLE);
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI3, ENABLE);
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI4, ENABLE);
+  RCC_APB1PeriphClockCmd(RCC_APB2Periph_SPI5, ENABLE);
+  RCC_APB1PeriphClockCmd(RCC_APB2Periph_SPI6, ENABLE);
 
   SPI_Cmd(SPI1, DISABLE);
   SPI_Cmd(SPI2, DISABLE);
   SPI_Cmd(SPI3, DISABLE);
+  SPI_Cmd(SPI4, DISABLE);
+  SPI_Cmd(SPI5, DISABLE);
+  SPI_Cmd(SPI6, DISABLE);
 
   /* GPIOA Configuration: SPI1 CLK on PA5, MISO on PA6, MOSI on PA7. */
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
@@ -78,19 +88,118 @@ setup_tlc_spi_dma()
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
   GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-  /* GPIOA Configuration: LAT1 on PA4. */
+  /* GPIOE Configuration: SPI4 CLK on PE12, MISO on PE13, MOSI on PE14. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+  GPIO_Init(GPIOE, &GPIO_InitStructure);
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12|GPIO_Pin_14;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
+
+  /* First, setup direct GPIO with lines low. */
+  GPIO_Init(GPIOE, &GPIO_InitStructure);
+  GPIO_ResetBits(GPIOE, GPIO_Pin_12|GPIO_Pin_14);
+  /* Then, setup the pins as the real alternate-function SPIs. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12|GPIO_Pin_13|GPIO_Pin_14;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+  GPIO_Init(GPIOE, &GPIO_InitStructure);
+
+  /* GPIOF Configuration: SPI5 MOSI on PF11. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
+
+  /* First, setup direct GPIO with line low. */
+  GPIO_Init(GPIOF, &GPIO_InitStructure);
+  GPIO_ResetBits(GPIOF, GPIO_Pin_7);
+  /* Then, setup the pin as the real alternate-function SPI. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+  GPIO_Init(GPIOF, &GPIO_InitStructure);
+
+  /* GPIOG Configuration: SPI6 CLK on PG13, MISO on PG12, MOSI on PG14. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+  GPIO_Init(GPIOG, &GPIO_InitStructure);
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13|GPIO_Pin_14;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
+
+  /* First, setup direct GPIO with lines low. */
+  GPIO_Init(GPIOG, &GPIO_InitStructure);
+  GPIO_ResetBits(GPIOG, GPIO_Pin_13|GPIO_Pin_14);
+  /* Then, setup the pins as the real alternate-function SPIs. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12|GPIO_Pin_13|GPIO_Pin_14;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+  GPIO_Init(GPIOG, &GPIO_InitStructure);
+
+  /* GPIOH Configuration: SPI5 CLK on PH6, MISO on PH7. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+  GPIO_Init(GPIOH, &GPIO_InitStructure);
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
+
+  /* First, setup direct GPIO with lines low. */
+  GPIO_Init(GPIOH, &GPIO_InitStructure);
+  GPIO_ResetBits(GPIOH, GPIO_Pin_6);
+  /* Then, setup the pins as the real alternate-function SPIs. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6|GPIO_Pin_7;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+  GPIO_Init(GPIOH, &GPIO_InitStructure);
+
+  /* GPIOA Configuration: LAT3 on PA4. */
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   GPIO_Init(GPIOA, &GPIO_InitStructure);
   /* Latch is active high; initialise it low. */
   GPIO_ResetBits(GPIOA, GPIO_Pin_4);
 
-  /* GPIOC Configuration: LAT2 on PC6, LAT3 on PC5. */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5|GPIO_Pin_6;
+  /* GPIOD Configuration: LAT6 on PD10, LAT5 on PD11. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10|GPIO_Pin_11;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_Init(GPIOC, &GPIO_InitStructure);
+  GPIO_Init(GPIOD, &GPIO_InitStructure);
   /* Latch is active high; initialise it low. */
-  GPIO_ResetBits(GPIOC, GPIO_Pin_5|GPIO_Pin_6);
+  GPIO_ResetBits(GPIOD, GPIO_Pin_10|GPIO_Pin_11);
+
+  /* GPIOE Configuration: LAT4 on PE15. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_Init(GPIOE, &GPIO_InitStructure);
+  /* Latch is active high; initialise it low. */
+  GPIO_ResetBits(GPIOE, GPIO_Pin_15);
+
+  /* GPIOG Configuration: LAT2 on PG15. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_Init(GPIOG, &GPIO_InitStructure);
+  /* Latch is active high; initialise it low. */
+  GPIO_ResetBits(GPIOG, GPIO_Pin_15);
+
+  /* GPIOH Configuration: LAT1 on PH3. */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_Init(GPIOH, &GPIO_InitStructure);
+  /* Latch is active high; initialise it low. */
+  GPIO_ResetBits(GPIOH, GPIO_Pin_3);
 
   GPIO_PinAFConfig(GPIOA, GPIO_PinSource5, GPIO_AF_SPI1);
   GPIO_PinAFConfig(GPIOA, GPIO_PinSource6, GPIO_AF_SPI1);
@@ -101,6 +210,15 @@ setup_tlc_spi_dma()
   GPIO_PinAFConfig(GPIOB, GPIO_PinSource3, GPIO_AF_SPI3);
   GPIO_PinAFConfig(GPIOB, GPIO_PinSource4, GPIO_AF_SPI3);
   GPIO_PinAFConfig(GPIOB, GPIO_PinSource5, GPIO_AF_SPI3);
+  GPIO_PinAFConfig(GPIOE, GPIO_PinSource12, GPIO_AF_SPI4);
+  GPIO_PinAFConfig(GPIOE, GPIO_PinSource13, GPIO_AF_SPI4);
+  GPIO_PinAFConfig(GPIOE, GPIO_PinSource14, GPIO_AF_SPI4);
+  GPIO_PinAFConfig(GPIOH, GPIO_PinSource6, GPIO_AF_SPI5);
+  GPIO_PinAFConfig(GPIOH, GPIO_PinSource7, GPIO_AF_SPI5);
+  GPIO_PinAFConfig(GPIOF, GPIO_PinSource11, GPIO_AF_SPI5);
+  GPIO_PinAFConfig(GPIOG, GPIO_PinSource13, GPIO_AF_SPI6);
+  GPIO_PinAFConfig(GPIOG, GPIO_PinSource12, GPIO_AF_SPI6);
+  GPIO_PinAFConfig(GPIOG, GPIO_PinSource14, GPIO_AF_SPI6);
 
   SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
   SPI_InitStructure.SPI_Mode = SPI_Mode_Master;
@@ -111,11 +229,17 @@ setup_tlc_spi_dma()
   SPI_InitStructure.SPI_NSS = SPI_NSS_Soft | SPI_NSSInternalSoft_Set;
   SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
   SPI_InitStructure.SPI_CRCPolynomial = 7;
-  /* SPI1 is on the 84 MHz APB2, so prescalar 4 is 21 MHz. */
+  /* SPI1/4/5/6 is on the 90 MHz APB2, so prescalar 4 is 22.5 MHz. */
   SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;
   SPI_Init(SPI1, &SPI_InitStructure);
+  SPI_Init(SPI4, &SPI_InitStructure);
+  SPI_Init(SPI5, &SPI_InitStructure);
+  SPI_Init(SPI6, &SPI_InitStructure);
   SPI_Cmd(SPI1, ENABLE);
-  /* SPI2/3 is on the 42 MHz APB1, so prescalar 2 is 21 MHz. */
+  SPI_Cmd(SPI4, ENABLE);
+  SPI_Cmd(SPI5, ENABLE);
+  SPI_Cmd(SPI6, ENABLE);
+  /* SPI2/3 is on the 45 MHz APB1, so prescalar 2 is 22.5 MHz. */
   SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_2;
   SPI_Init(SPI2, &SPI_InitStructure);
   SPI_Init(SPI3, &SPI_InitStructure);
@@ -124,13 +248,20 @@ setup_tlc_spi_dma()
 
   /*
     Setup DMA.
-    SPI1 uses DMA2 stream 0 ch 3 (Rx) and stream 3 ch 3 (Tx).
+    SPI1 uses DMA2 stream 2 ch 3 (Rx) and stream 3 ch 3 (Tx).
     SPI2 uses DMA1 stream 3 ch 0 (Rx) and stream 4 ch 0 (Tx).
     SPI3 uses DMA1 stream 0 ch 0 (Rx) and stream 5 ch 0 (Tx).
+    SPI4 uses DMA2 stream 0 ch 4 (Rx) and stream 1 ch 4 (Tx).
+    SPI5 uses DMA2 stream 5 ch 7 (Rx) and stream 4 ch 2 (Tx).
+    ToDo: Also do SPI6; but this needs to not use DMA for Rx, as there is not room in channel selection for everything.
   */
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA2, ENABLE);
   DMA_DeInit(DMA2_Stream0);
+  DMA_DeInit(DMA2_Stream1);
+  DMA_DeInit(DMA2_Stream2);
   DMA_DeInit(DMA2_Stream3);
+  DMA_DeInit(DMA2_Stream4);
+  DMA_DeInit(DMA2_Stream5);
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA1, ENABLE);
   DMA_DeInit(DMA1_Stream3);
   DMA_DeInit(DMA1_Stream4);
@@ -158,7 +289,7 @@ setup_tlc_spi_dma()
   DMA_InitStructure.DMA_Channel = DMA_Channel_3;
   DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
   DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA2_Stream0, &DMA_InitStructure);
+  DMA_Init(DMA2_Stream2, &DMA_InitStructure);
   /* Configure SPI2 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI2->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_0;
@@ -181,11 +312,56 @@ setup_tlc_spi_dma()
   DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
   DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA1_Stream0, &DMA_InitStructure);
+  /* Configure SPI4 TX DMA */
+  DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI4->DR));
+  DMA_InitStructure.DMA_Channel = DMA_Channel_4;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
+  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
+  DMA_Init(DMA2_Stream1, &DMA_InitStructure);
+  /* Configure SPI4 RX DMA */
+  DMA_InitStructure.DMA_Channel = DMA_Channel_4;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
+  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
+  DMA_Init(DMA2_Stream0, &DMA_InitStructure);
+  /* Configure SPI5 TX DMA */
+  DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI5->DR));
+  DMA_InitStructure.DMA_Channel = DMA_Channel_2;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
+  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
+  DMA_Init(DMA2_Stream4, &DMA_InitStructure);
+  /* Configure SPI5 RX DMA */
+  DMA_InitStructure.DMA_Channel = DMA_Channel_7;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
+  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
+  DMA_Init(DMA2_Stream5, &DMA_InitStructure);
+  /* ToDo: SPI6. */
 }
 
 
 static void
 tlc1_latch(void)
+{
+  delay(1);
+  GPIO_SetBits(GPIOH, GPIO_Pin_3);
+  delay(1);
+  GPIO_ResetBits(GPIOH, GPIO_Pin_3);
+  delay(1);
+}
+
+
+static void
+tlc3_latch(void)
+{
+  delay(1);
+  GPIO_SetBits(GPIOG, GPIO_Pin_15);
+  delay(1);
+  GPIO_ResetBits(GPIOG, GPIO_Pin_15);
+  delay(1);
+}
+
+
+static void
+tlc2_latch(void)
 {
   delay(1);
   GPIO_SetBits(GPIOA, GPIO_Pin_4);
@@ -196,47 +372,60 @@ tlc1_latch(void)
 
 
 static void
-tlc2_latch(void)
+tlc4_latch(void)
 {
   delay(1);
-  GPIO_SetBits(GPIOC, GPIO_Pin_6);
+  GPIO_SetBits(GPIOE, GPIO_Pin_15);
   delay(1);
-  GPIO_ResetBits(GPIOC, GPIO_Pin_6);
+  GPIO_ResetBits(GPIOE, GPIO_Pin_15);
   delay(1);
 }
 
 
 static void
-tlc3_latch(void)
+tlc5_latch(void)
 {
   delay(1);
-  GPIO_SetBits(GPIOC, GPIO_Pin_5);
+  GPIO_SetBits(GPIOD, GPIO_Pin_11);
   delay(1);
-  GPIO_ResetBits(GPIOC, GPIO_Pin_5);
+  GPIO_ResetBits(GPIOD, GPIO_Pin_11);
   delay(1);
 }
+
+
+#ifdef ToDo_SPI6
+static void
+tlc6_latch(void)
+{
+  delay(1);
+  GPIO_SetBits(GPIOD, GPIO_Pin_10);
+  delay(1);
+  GPIO_ResetBits(GPIOD, GPIO_Pin_10);
+  delay(1);
+}
+#endif
 
 
 static void
 dma_to_tlc1(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
 {
-  DMA2_Stream0->M0AR = (uint32_t)inbuf;
-  DMA2_Stream0->NDTR = len;
+  DMA2_Stream2->M0AR = (uint32_t)inbuf;
+  DMA2_Stream2->NDTR = len;
   DMA2_Stream3->M0AR = (uint32_t)outbuf;
   DMA2_Stream3->NDTR = len;
 
-  DMA_Cmd(DMA2_Stream0, ENABLE);
+  DMA_Cmd(DMA2_Stream2, ENABLE);
   DMA_Cmd(DMA2_Stream3, ENABLE);
   SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Rx, ENABLE);
   SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, ENABLE);
   while (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET)
     ;
-  while (DMA_GetFlagStatus(DMA2_Stream0, DMA_FLAG_TCIF0)==RESET)
+  while (DMA_GetFlagStatus(DMA2_Stream2, DMA_FLAG_TCIF2)==RESET)
     ;
   DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
-  DMA_ClearFlag(DMA2_Stream0, DMA_FLAG_TCIF0);
+  DMA_ClearFlag(DMA2_Stream2, DMA_FLAG_TCIF2);
   DMA_Cmd(DMA2_Stream3, DISABLE);
-  DMA_Cmd(DMA2_Stream0, DISABLE);
+  DMA_Cmd(DMA2_Stream2, DISABLE);
   SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Rx, DISABLE);
   SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, DISABLE);
 
@@ -308,6 +497,68 @@ dma_to_tlc3(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
 
 
 static void
+dma_to_tlc4(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
+{
+  DMA2_Stream0->M0AR = (uint32_t)inbuf;
+  DMA2_Stream0->NDTR = len;
+  DMA2_Stream1->M0AR = (uint32_t)outbuf;
+  DMA2_Stream1->NDTR = len;
+
+  DMA_Cmd(DMA2_Stream0, ENABLE);
+  DMA_Cmd(DMA2_Stream1, ENABLE);
+  SPI_I2S_DMACmd(SPI4, SPI_I2S_DMAReq_Rx, ENABLE);
+  SPI_I2S_DMACmd(SPI4, SPI_I2S_DMAReq_Tx, ENABLE);
+  while (DMA_GetFlagStatus(DMA2_Stream1, DMA_FLAG_TCIF1) == RESET)
+    ;
+  while (DMA_GetFlagStatus(DMA2_Stream0, DMA_FLAG_TCIF0)==RESET)
+    ;
+  DMA_ClearFlag(DMA2_Stream1, DMA_FLAG_TCIF1);
+  DMA_ClearFlag(DMA2_Stream0, DMA_FLAG_TCIF0);
+  DMA_Cmd(DMA2_Stream1, DISABLE);
+  DMA_Cmd(DMA2_Stream0, DISABLE);
+  SPI_I2S_DMACmd(SPI4, SPI_I2S_DMAReq_Rx, DISABLE);
+  SPI_I2S_DMACmd(SPI4, SPI_I2S_DMAReq_Tx, DISABLE);
+
+  while (!(SPI4->SR & SPI_I2S_FLAG_TXE))
+    ;
+  while (SPI4->SR & SPI_I2S_FLAG_BSY)
+    ;
+}
+
+
+static void
+dma_to_tlc5(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
+{
+  DMA2_Stream5->M0AR = (uint32_t)inbuf;
+  DMA2_Stream5->NDTR = len;
+  DMA2_Stream4->M0AR = (uint32_t)outbuf;
+  DMA2_Stream4->NDTR = len;
+
+  DMA_Cmd(DMA2_Stream5, ENABLE);
+  DMA_Cmd(DMA2_Stream4, ENABLE);
+  SPI_I2S_DMACmd(SPI5, SPI_I2S_DMAReq_Rx, ENABLE);
+  SPI_I2S_DMACmd(SPI5, SPI_I2S_DMAReq_Tx, ENABLE);
+  while (DMA_GetFlagStatus(DMA2_Stream4, DMA_FLAG_TCIF4) == RESET)
+    ;
+  while (DMA_GetFlagStatus(DMA2_Stream5, DMA_FLAG_TCIF5)==RESET)
+    ;
+  DMA_ClearFlag(DMA2_Stream4, DMA_FLAG_TCIF4);
+  DMA_ClearFlag(DMA2_Stream5, DMA_FLAG_TCIF5);
+  DMA_Cmd(DMA2_Stream4, DISABLE);
+  DMA_Cmd(DMA2_Stream5, DISABLE);
+  SPI_I2S_DMACmd(SPI5, SPI_I2S_DMAReq_Rx, DISABLE);
+  SPI_I2S_DMACmd(SPI5, SPI_I2S_DMAReq_Tx, DISABLE);
+
+  while (!(SPI5->SR & SPI_I2S_FLAG_TXE))
+    ;
+  while (SPI5->SR & SPI_I2S_FLAG_BSY)
+    ;
+}
+
+
+/* ToDo: SPI6. */
+
+static void
 add_bits(uint8_t *buf, uint32_t len, uint32_t val, uint32_t size, uint32_t *pos)
 {
   uint32_t loc_pos = *pos;
@@ -324,7 +575,7 @@ add_bits(uint8_t *buf, uint32_t len, uint32_t val, uint32_t size, uint32_t *pos)
 
 
 static void
-shift_buf_7_bits(uint8_t *buf, uint32_t len)
+shift_buf_6_bits(uint8_t *buf, uint32_t len)
 {
   uint32_t i;
   uint8_t old;
@@ -333,7 +584,7 @@ shift_buf_7_bits(uint8_t *buf, uint32_t len)
   for (i = 0; i < len; ++i)
   {
     uint8_t val = buf[i];
-    buf[i] = (old << 1) | (val >> 7);
+    buf[i] = (old << 2) | (val >> 6);
     old = val;
   }
 }
@@ -353,61 +604,65 @@ fill_tlc5955_control_latch(uint8_t *buf,
                            uint32_t tlc_idx, uint32_t bc_val, uint32_t mc_val)
 {
   uint32_t pos = 0;
-  uint32_t i;
+  uint32_t i, j;
   float max_dist = led_distance_to_center_xy(6,3);
 
-  memset(buf, 0, 97);
-  for (i = 0; i < 48; ++i)
+  memset(buf, 0, 193);
+  for (j = 0; j < 2; ++j)
   {
-    uint32_t led = i/3;
-    uint32_t dc_adj;
-    float dist = led_distance_to_center_tlc(tlc_idx, led);
-    float dc_fact = dist / max_dist;
-    /* Minimum brightness @ DC=0 is 26.2%. */
-    if (dc_fact < 0.262f)
-      dc_fact = 0.262f;
-    dc_adj = (uint32_t)(0.5f + 127.0f * (dc_fact - 0.262f)/(1.0f - 0.262f));
-    add_bits(buf, 97, dc_adj, 7, &pos);
+    for (i = 0; i < 48; ++i)
+    {
+      uint32_t led = i/3;
+      uint32_t dc_adj;
+      /* ToDo: This needs to use an updated table, and take into account the 'j' index. */
+      float dist = led_distance_to_center_tlc(tlc_idx, led);
+      float dc_fact = dist / max_dist;
+      /* Minimum brightness @ DC=0 is 26.2%. */
+      if (dc_fact < 0.262f)
+        dc_fact = 0.262f;
+      dc_adj = (uint32_t)(0.5f + 127.0f * (dc_fact - 0.262f)/(1.0f - 0.262f));
+      add_bits(buf, 193, dc_adj, 7, &pos);
+    }
+    for (i = 0; i < 3; ++i)
+      add_bits(buf, 193, mc_val, 3, &pos);
+    for (i = 0; i < 3; ++i)
+      add_bits(buf, 193, bc_val, 7, &pos);
+    /*
+      Control bits:
+        366 DSPRPT  0   Disable auto repeat
+        367 TMGRST  1   display timing reset mode enabled (reset GS at LAT)
+        368 RFRESH  0   auto data refresh disabled
+        369 ESPWM   1   Enable enhanced spectrum PWM
+        370 LSDVLT  0   LSD voltage is VCC * 0.7
+    */
+    add_bits(buf, 193, 0x0a, 5, &pos);
+    /* Need 0x1 0x96 at start of buffer to latch control register. */
+    pos = 760 + 769*j;
+    add_bits(buf, 193, 0x196, 9, &pos);
   }
-  for (i = 0; i < 3; ++i)
-    add_bits(buf, 97, mc_val, 3, &pos);
-  for (i = 0; i < 3; ++i)
-    add_bits(buf, 97, bc_val, 7, &pos);
-  /*
-    Control bits:
-      366 DSPRPT  0   Disable auto repeat
-      367 TMGRST  1   display timing reset mode enabled (reset GS at LAT)
-      368 RFRESH  0   auto data refresh disabled
-      369 ESPWM   1   Enable enhanced spectrum PWM
-      370 LSDVLT  0   LSD voltage is VCC * 0.7
-  */
-  add_bits(buf, 97, 0x0a, 5, &pos);
-  /* Need 0x1 0x96 at start of buffer to latch control register. */
-  pos = 760;
-  add_bits(buf, 97, 0x196, 9, &pos);
 }
 
 
 static void
 fill_tlc5955_gs_latch(uint8_t *buf, uint32_t max_gs)
 {
-  uint32_t i, j;
+  uint32_t i, j, k;
   uint32_t idx;
 
-  /*
-    Bit 768=0 latches GS register. We shift out bits 769-775 also, for
-    simplicity.
-  */
-  buf[0] = 0;
-  idx = 1;
-  for (i = 0; i < 16; ++i)
+  memset(buf, 0, 193);
+  idx = 0;
+  for (k = 0; k < 2; ++k)
   {
-    for (j = 0; j < 3; ++j)
+    for (i = 0; i < 16; ++i)
     {
-      uint32_t gsval = ( (i & (1<<j)) ? max_gs/(2-(i/8)) : 0);
-      buf[idx++] = gsval >> 8;
-      buf[idx++] = gsval & 0xff;
+      for (j = 0; j < 3; ++j)
+      {
+        uint32_t gsval = ( (i & (1<<j)) ? max_gs/(2-(i/8)) : 0);
+        add_bits(buf, 193, gsval, 16, &idx);
+      }
     }
+    /* Add the "0" bit that selects the GS register. */
+    add_bits(buf, 193, 0, 1, &idx);
   }
 }
 
@@ -416,7 +671,7 @@ static void
 setup_tlc5955(uint32_t tlc_idx, void (*latch_func)(void),
               void (*dma_func)(uint8_t *, uint8_t *, uint32_t))
 {
-  uint8_t databuf[97], inbuf[97], tmpbuf[97];
+  uint8_t databuf[193], inbuf[193], tmpbuf[193];
 
   /*
     MC=4 is 19.1 mA max.
@@ -434,7 +689,7 @@ setup_tlc5955(uint32_t tlc_idx, void (*latch_func)(void),
   (*dma_func)(tmpbuf, inbuf, sizeof(tmpbuf));
   (*latch_func)();
   /* Since we shift out 7 bits too many, we need to adjust the result read. */
-  shift_buf_7_bits(inbuf, 97);
+  shift_buf_6_bits(inbuf, 193);
   if (0 != memcmp(databuf, inbuf, sizeof(databuf)))
   {
     serial_dump_buf(inbuf, sizeof(inbuf));
@@ -458,11 +713,14 @@ void
 setup_spi(void)
 {
   setup_tlc_spi_dma();
-  /* ToDo: Setup nRF. */
 
   setup_tlc5955(0, tlc1_latch, dma_to_tlc1);
   setup_tlc5955(1, tlc2_latch, dma_to_tlc2);
   setup_tlc5955(2, tlc3_latch, dma_to_tlc3);
+  //setup_tlc5955(0 /* ToDo */, tlc4_latch, dma_to_tlc4);
+  /* ToDo: SPI5 hangs for some reason. */
+//  setup_tlc5955(1 /* ToDo */, tlc5_latch, dma_to_tlc5);
+  /* ToDo: SPI6. */
 }
 
 
@@ -487,6 +745,7 @@ void
 start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3)
 {
   static const uint32_t len = 2+48*2;           /* 48 outputs + extra word */
+  /* ToDo: not adapted yet for LED-torus 2. */
 
   DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
   DMA_ClearFlag(DMA1_Stream4, DMA_FLAG_TCIF4);
@@ -511,6 +770,7 @@ start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3)
 void
 latch_scanplanes(void)
 {
+  /* ToDo: not adapted yet for LED-torus 2. */
   delay(1);
   GPIO_SetBits(GPIOA, GPIO_Pin_4);
   GPIO_SetBits(GPIOC, GPIO_Pin_6);
@@ -525,6 +785,7 @@ latch_scanplanes(void)
 uint32_t
 is_tlc_dma_done(void)
 {
+  /* ToDo: not adapted yet for LED-torus 2. */
   if (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET ||
       DMA_GetFlagStatus(DMA1_Stream4, DMA_FLAG_TCIF4) == RESET ||
       DMA_GetFlagStatus(DMA1_Stream5, DMA_FLAG_TCIF5) == RESET)
