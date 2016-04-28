@@ -32,8 +32,8 @@ setup_tlc_spi_dma()
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI2, ENABLE);
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI3, ENABLE);
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI4, ENABLE);
-  RCC_APB1PeriphClockCmd(RCC_APB2Periph_SPI5, ENABLE);
-  RCC_APB1PeriphClockCmd(RCC_APB2Periph_SPI6, ENABLE);
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI5, ENABLE);
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI6, ENABLE);
 
   SPI_Cmd(SPI1, DISABLE);
   SPI_Cmd(SPI2, DISABLE);
@@ -354,6 +354,29 @@ dma_to_tlc(uint8_t *outbuf, uint32_t len,
     (void)SPI_I2S_ReceiveData(spi_dev);
 }
 
+__attribute__((unused))
+static void
+write_to_tlc(uint8_t *outbuf, uint32_t len,
+             SPI_TypeDef *spi_dev, DMA_Stream_TypeDef *dma_stream,
+             uint32_t dma_flag)
+{
+  /* Clear out any pending not-read data. */
+  while (spi_dev->SR & SPI_I2S_FLAG_RXNE)
+    (void)SPI_I2S_ReceiveData(spi_dev);
+
+  while (len > 0)
+  {
+    while (!(spi_dev->SR & SPI_I2S_FLAG_TXE))
+      ;
+    SPI_I2S_SendData(spi_dev, *outbuf);
+    while (!(spi_dev->SR & SPI_I2S_FLAG_RXNE))
+      ;
+    (void)SPI_I2S_ReceiveData(spi_dev);
+    ++outbuf;
+    --len;
+  }
+}
+
 
 static void
 read_from_tlc(SPI_TypeDef *spi_dev, uint8_t *buf, uint32_t len)
@@ -535,11 +558,11 @@ setup_spi(void)
   setup_tlc5955(0, SPI1, DMA2_Stream3, DMA_FLAG_TCIF3, GPIOA, GPIO_Pin_4);
   setup_tlc5955(1, SPI2, DMA1_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_11);
   setup_tlc5955(2, SPI3, DMA1_Stream5, DMA_FLAG_TCIF5, GPIOG, GPIO_Pin_15);
-  //setup_tlc5955(0 /* ToDo */, SPI4, DMA2_Stream1, DMA_FLAG_TCIF1, GPIOE, GPIO_Pin_15);
-  /* ToDo: SPI5 hangs for some reason. */
-//  setup_tlc5955(1 /* ToDo */, SPI5, DMA2_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_10);
-  /* ToDo: SPI6. */
-  //setup_tlc5955(3 /* ToDo */, SPI6, DMA2_Stream5, DMA_FLAG_TCIF5, GPIOH, GPIO_Pin_3);
+  /* ToDo: Solder pad on U10/U11 (SPI4) is ruined :-/ */
+  setup_tlc5955(0 /* ToDo */, SPI4, DMA2_Stream1, DMA_FLAG_TCIF1, GPIOE, GPIO_Pin_15);
+  /* ToDo: SPI5 fails for some reason, suspect bad soldering on U14(/U15). */
+  setup_tlc5955(1 /* ToDo */, SPI5, DMA2_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_10);
+  setup_tlc5955(2 /* ToDo */, SPI6, DMA2_Stream5, DMA_FLAG_TCIF5, GPIOH, GPIO_Pin_3);
 }
 
 
