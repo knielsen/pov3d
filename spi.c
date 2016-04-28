@@ -110,7 +110,7 @@ setup_tlc_spi_dma()
   GPIO_Init(GPIOE, &GPIO_InitStructure);
 
   /* GPIOF Configuration: SPI5 MOSI on PF11. */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
   GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
@@ -118,9 +118,9 @@ setup_tlc_spi_dma()
 
   /* First, setup direct GPIO with line low. */
   GPIO_Init(GPIOF, &GPIO_InitStructure);
-  GPIO_ResetBits(GPIOF, GPIO_Pin_7);
+  GPIO_ResetBits(GPIOF, GPIO_Pin_11);
   /* Then, setup the pin as the real alternate-function SPI. */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
   GPIO_Init(GPIOF, &GPIO_InitStructure);
 
@@ -547,6 +547,13 @@ setup_tlc5955(uint32_t tlc_idx, SPI_TypeDef *spi_dev,
   serial_dump_buf(databuf, sizeof(databuf));
   dma_to_tlc(databuf, sizeof(databuf), spi_dev, dma_stream, dma_flag);
   tlc_latch(latch_gpio, latch_pin);
+#if 0
+  /* Read out and dump the status information, for debugging. */
+  read_from_tlc(spi_dev, inbuf, sizeof(inbuf));
+  serial_puts("SID data from TLCs:\r\n");
+  shift_buf_6_bits(inbuf, sizeof(inbuf));
+  serial_dump_buf(inbuf, sizeof(inbuf));
+#endif
 }
 
 
@@ -555,13 +562,18 @@ setup_spi(void)
 {
   setup_tlc_spi_dma();
 
+  serial_puts("Setting up TLC U8/U9 on SPI1...\r\n");
   setup_tlc5955(0, SPI1, DMA2_Stream3, DMA_FLAG_TCIF3, GPIOA, GPIO_Pin_4);
+  serial_puts("Setting up TLC U12/U13 on SPI2...\r\n");
   setup_tlc5955(1, SPI2, DMA1_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_11);
+  serial_puts("Setting up TLC U6/U7 on SPI3...\r\n");
   setup_tlc5955(2, SPI3, DMA1_Stream5, DMA_FLAG_TCIF5, GPIOG, GPIO_Pin_15);
   /* ToDo: Solder pad on U10/U11 (SPI4) is ruined :-/ */
+  serial_puts("Setting up TLC U10/U11 on SPI4...\r\n");
   setup_tlc5955(0 /* ToDo */, SPI4, DMA2_Stream1, DMA_FLAG_TCIF1, GPIOE, GPIO_Pin_15);
-  /* ToDo: SPI5 fails for some reason, suspect bad soldering on U14(/U15). */
+  serial_puts("Setting up TLC U14/U15 on SPI5...\r\n");
   setup_tlc5955(1 /* ToDo */, SPI5, DMA2_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_10);
+  serial_puts("Setting up TLC U4/U5 on SPI6...\r\n");
   setup_tlc5955(2 /* ToDo */, SPI6, DMA2_Stream5, DMA_FLAG_TCIF5, GPIOH, GPIO_Pin_3);
 }
 
