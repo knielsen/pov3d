@@ -112,7 +112,7 @@ trigger_softint(void)
 }
 
 
-static uint32_t scanplane_buffers[2][3][25];
+static uint32_t scanplane_buffers[2][6][49];
 static uint8_t scanbuffer_idx = 0;
 static uint8_t init_counter = 0;
 static uint8_t hall_sync_adj = 0;
@@ -148,7 +148,10 @@ void TIM6_DAC_IRQHandler(void)
     {
       start_dma_scanplanes(scanplane_buffers[idx][0],
                            scanplane_buffers[idx][1],
-                           scanplane_buffers[idx][2]);
+                           scanplane_buffers[idx][2],
+                           scanplane_buffers[idx][3],
+                           scanplane_buffers[idx][4],
+                           scanplane_buffers[idx][5]);
     }
 
     if (ic < 2)
@@ -338,6 +341,12 @@ EXTI0_IRQHandler(void)
                                  1, intensity, 4);
       fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][2]) + 1,
                                  2, intensity, 4);
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][3]) + 1,
+                                 0/*ToDo*/, intensity, 4);
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][4]) + 1,
+                                 1/*ToDo*/, intensity, 4);
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][5]) + 1,
+                                 2/*ToDo*/, intensity, 4);
       counter = intensity_flag >> 8;
       /* Generate control data twice, then go back to normal operation. */
       if (counter == 2)
@@ -349,7 +358,10 @@ EXTI0_IRQHandler(void)
     {
       make_scan_planes(c, scanplane_buffers[idx][0],
                        scanplane_buffers[idx][1],
-                       scanplane_buffers[idx][2]);
+                       scanplane_buffers[idx][2],
+                       scanplane_buffers[idx][3],
+                       scanplane_buffers[idx][4],
+                       scanplane_buffers[idx][5]);
     }
 
     /* Clear the pending interrupt event. */

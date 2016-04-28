@@ -151,7 +151,10 @@ void
 make_scan_planes(uint32_t angle,
                  uint32_t * __restrict b1,
                  uint32_t * __restrict b2,
-                 uint32_t * __restrict b3)
+                 uint32_t * __restrict b3,
+                 uint32_t * __restrict b4,
+                 uint32_t * __restrict b5,
+                 uint32_t * __restrict b6)
 {
   uint16_t *p1 = (uint16_t *)b1;
   uint16_t *p2 = (uint16_t *)b2;
@@ -159,6 +162,13 @@ make_scan_planes(uint32_t angle,
   uint16_t *ps[3] = { p1, p2, p3 };
   uint8_t (*f)[LEDS_Y*LEDS_X*LEDS_TANG][3] = get_framebuf(1 - render_idx);
   uint32_t t, i;
+  /*
+    ToDo: This needs to be adapted for LED-torus 2.
+    We need to fill in all 6 dma buffers. And the different description tables
+    need the correct index values and positions.
+    And half the data needs to be shifted 1 bit to make room for the extra
+    bit 768 which selects the GS latching...
+  */
 
 #ifdef COUNTER_CLOCKWISE
   angle=(LEDS_TANG-1)-angle;

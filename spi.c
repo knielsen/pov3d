@@ -547,7 +547,7 @@ setup_tlc5955(uint32_t tlc_idx, SPI_TypeDef *spi_dev,
   serial_dump_buf(databuf, sizeof(databuf));
   dma_to_tlc(databuf, sizeof(databuf), spi_dev, dma_stream, dma_flag);
   tlc_latch(latch_gpio, latch_pin);
-#if 0
+#if EXTRA_DEBUG
   /* Read out and dump the status information, for debugging. */
   read_from_tlc(spi_dev, inbuf, sizeof(inbuf));
   serial_puts("SID data from TLCs:\r\n");
@@ -568,7 +568,7 @@ setup_spi(void)
   setup_tlc5955(1, SPI2, DMA1_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_11);
   serial_puts("Setting up TLC U6/U7 on SPI3...\r\n");
   setup_tlc5955(2, SPI3, DMA1_Stream5, DMA_FLAG_TCIF5, GPIOG, GPIO_Pin_15);
-  /* ToDo: Solder pad on U10/U11 (SPI4) is ruined :-/ */
+  /* ToDo: Solder pad on U10/U11 (SPI4) is ruined (?) */
   serial_puts("Setting up TLC U10/U11 on SPI4...\r\n");
   setup_tlc5955(0 /* ToDo */, SPI4, DMA2_Stream1, DMA_FLAG_TCIF1, GPIOE, GPIO_Pin_15);
   serial_puts("Setting up TLC U14/U15 on SPI5...\r\n");
@@ -596,14 +596,17 @@ setup_spi(void)
   for DMA burst transfers.
 */
 void
-start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3)
+start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3,
+                     uint32_t *p4, uint32_t *p5, uint32_t *p6)
 {
-  static const uint32_t len = 2+48*2;           /* 48 outputs + extra word */
-  /* ToDo: not adapted yet for LED-torus 2. */
+  static const uint32_t len = 2*48*2+2;/* 2 TLCs each 48 outputs + extra word */
 
   DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
   DMA_ClearFlag(DMA1_Stream4, DMA_FLAG_TCIF4);
   DMA_ClearFlag(DMA1_Stream5, DMA_FLAG_TCIF5);
+  DMA_ClearFlag(DMA2_Stream1, DMA_FLAG_TCIF1);
+  DMA_ClearFlag(DMA2_Stream4, DMA_FLAG_TCIF4);
+  DMA_ClearFlag(DMA2_Stream5, DMA_FLAG_TCIF5);
 
   DMA2_Stream3->M0AR = (uint32_t)p1;
   DMA2_Stream3->NDTR = len;
@@ -611,46 +614,71 @@ start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3)
   DMA1_Stream4->NDTR = len;
   DMA1_Stream5->M0AR = (uint32_t)p3;
   DMA1_Stream5->NDTR = len;
+  DMA2_Stream1->M0AR = (uint32_t)p4;
+  DMA2_Stream1->NDTR = len;
+  DMA2_Stream4->M0AR = (uint32_t)p5;
+  DMA2_Stream4->NDTR = len;
+  DMA2_Stream5->M0AR = (uint32_t)p6;
+  DMA2_Stream5->NDTR = len;
 
   DMA_Cmd(DMA2_Stream3, ENABLE);
   DMA_Cmd(DMA1_Stream4, ENABLE);
   DMA_Cmd(DMA1_Stream5, ENABLE);
+  DMA_Cmd(DMA2_Stream1, ENABLE);
+  DMA_Cmd(DMA2_Stream4, ENABLE);
+  DMA_Cmd(DMA2_Stream5, ENABLE);
   SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, ENABLE);
   SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Tx, ENABLE);
   SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Tx, ENABLE);
+  SPI_I2S_DMACmd(SPI4, SPI_I2S_DMAReq_Tx, ENABLE);
+  SPI_I2S_DMACmd(SPI5, SPI_I2S_DMAReq_Tx, ENABLE);
+  SPI_I2S_DMACmd(SPI6, SPI_I2S_DMAReq_Tx, ENABLE);
 }
 
 
 void
 latch_scanplanes(void)
 {
-  /* ToDo: not adapted yet for LED-torus 2. */
   delay(1);
   GPIO_SetBits(GPIOA, GPIO_Pin_4);
-  GPIO_SetBits(GPIOC, GPIO_Pin_6);
-  GPIO_SetBits(GPIOC, GPIO_Pin_5);
+  GPIO_SetBits(GPIOD, GPIO_Pin_11);
+  GPIO_SetBits(GPIOG, GPIO_Pin_15);
+  GPIO_SetBits(GPIOE, GPIO_Pin_15);
+  GPIO_SetBits(GPIOD, GPIO_Pin_10);
+  GPIO_SetBits(GPIOH, GPIO_Pin_3);
   delay(1);
   GPIO_ResetBits(GPIOA, GPIO_Pin_4);
-  GPIO_ResetBits(GPIOC, GPIO_Pin_6);
-  GPIO_ResetBits(GPIOC, GPIO_Pin_5);
+  GPIO_ResetBits(GPIOD, GPIO_Pin_11);
+  GPIO_ResetBits(GPIOG, GPIO_Pin_15);
+  GPIO_ResetBits(GPIOE, GPIO_Pin_15);
+  GPIO_ResetBits(GPIOD, GPIO_Pin_10);
+  GPIO_ResetBits(GPIOH, GPIO_Pin_3);
 }
 
 
 uint32_t
 is_tlc_dma_done(void)
 {
-  /* ToDo: not adapted yet for LED-torus 2. */
   if (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET ||
       DMA_GetFlagStatus(DMA1_Stream4, DMA_FLAG_TCIF4) == RESET ||
-      DMA_GetFlagStatus(DMA1_Stream5, DMA_FLAG_TCIF5) == RESET)
+      DMA_GetFlagStatus(DMA1_Stream5, DMA_FLAG_TCIF5) == RESET ||
+      DMA_GetFlagStatus(DMA2_Stream1, DMA_FLAG_TCIF1) == RESET ||
+      DMA_GetFlagStatus(DMA2_Stream4, DMA_FLAG_TCIF4) == RESET ||
+      DMA_GetFlagStatus(DMA2_Stream5, DMA_FLAG_TCIF5) == RESET)
     return 0;
   if (!(SPI1->SR & SPI_I2S_FLAG_TXE) ||
       !(SPI2->SR & SPI_I2S_FLAG_TXE) ||
-      !(SPI3->SR & SPI_I2S_FLAG_TXE))
+      !(SPI3->SR & SPI_I2S_FLAG_TXE) ||
+      !(SPI4->SR & SPI_I2S_FLAG_TXE) ||
+      !(SPI5->SR & SPI_I2S_FLAG_TXE) ||
+      !(SPI6->SR & SPI_I2S_FLAG_TXE))
     return 0;
   if ((SPI1->SR & SPI_I2S_FLAG_BSY) ||
       (SPI2->SR & SPI_I2S_FLAG_BSY) ||
-      (SPI3->SR & SPI_I2S_FLAG_BSY))
+      (SPI3->SR & SPI_I2S_FLAG_BSY) ||
+      (SPI4->SR & SPI_I2S_FLAG_BSY) ||
+      (SPI5->SR & SPI_I2S_FLAG_BSY) ||
+      (SPI6->SR & SPI_I2S_FLAG_BSY))
     return 0;
   return 1;
 }

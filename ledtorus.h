@@ -98,7 +98,8 @@ extern void serial_dump_buf(uint8_t *buf, uint32_t len);
 
 /* spi.c */
 extern void setup_spi(void);
-extern void start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3);
+extern void start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3,
+                                 uint32_t *p4, uint32_t *p5, uint32_t *p6);
 extern void latch_scanplanes(void);
 extern uint32_t is_tlc_dma_done(void);
 extern void fill_tlc5955_control_latch(uint8_t *buf, uint32_t tlc_idx,
@@ -137,8 +138,9 @@ extern float voltage_read_vrefint_adjust(void);
 
 /* tlc.c */
 extern uint8_t led_intensity;
-extern void make_scan_planes(uint32_t angle, uint32_t *b1, uint32_t *b2,
-                             uint32_t *b3);
+extern void make_scan_planes(uint32_t angle,
+                             uint32_t *b1, uint32_t *b2, uint32_t *b3,
+                             uint32_t *b4, uint32_t *b5, uint32_t *b6);
 extern void init_tlc(void);
 extern float led_distance_to_center_xy(uint32_t x, uint32_t y);
 extern float led_distance_to_center_tlc(uint32_t tlc, uint32_t output);
