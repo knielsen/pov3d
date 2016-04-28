@@ -5,12 +5,12 @@
 
 /*
   TLCs are on:
-    PA5 (CLK) PA6 (MISO) PA7 (MOSI) PA4 (LAT)
-    PA3 is VPRG/MODE.
-
-    PB13 (CLK) PB14 (MISO) PB15 (MOSI) PC6 (LAT)
-
-    PB3 (CLK) PB4 (MISO) PB5 (MOSI) PC5 (LAT)
+    SPI1:   U8/U9   PA5 (CLK)  PA6 (MISO)  PA7 (MOSI)  PA4 (LAT)
+    SPI2: U12/U13  PB13 (CLK) PB14 (MISO) PB15 (MOSI) PD11 (LAT)
+    SPI3:   U6/U7   PB3 (CLK)  PB4 (MISO)  PB5 (MOSI) PG15 (LAT)
+    SPI4: U10/U11  PE12 (CLK) PE13 (MISO) PE14 (MOSI) PE15 (LAT)
+    SPI5: U14/U15   PH6 (CLK)  PH7 (MISO) PF11 (MOSI) PD10 (LAT)
+    SPI6:   U4/U5  PG13 (CLK) PG12 (MISO) PG14 (MOSI)  PH3 (LAT)
 */
 
 
@@ -166,14 +166,14 @@ setup_tlc_spi_dma()
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
   GPIO_Init(GPIOH, &GPIO_InitStructure);
 
-  /* GPIOA Configuration: LAT3 on PA4. */
+  /* GPIOA Configuration: LAT1 on PA4. */
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   GPIO_Init(GPIOA, &GPIO_InitStructure);
   /* Latch is active high; initialise it low. */
   GPIO_ResetBits(GPIOA, GPIO_Pin_4);
 
-  /* GPIOD Configuration: LAT6 on PD10, LAT5 on PD11. */
+  /* GPIOD Configuration: LAT5 on PD10, LAT2 on PD11. */
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10|GPIO_Pin_11;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   GPIO_Init(GPIOD, &GPIO_InitStructure);
@@ -187,14 +187,14 @@ setup_tlc_spi_dma()
   /* Latch is active high; initialise it low. */
   GPIO_ResetBits(GPIOE, GPIO_Pin_15);
 
-  /* GPIOG Configuration: LAT2 on PG15. */
+  /* GPIOG Configuration: LAT3 on PG15. */
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   GPIO_Init(GPIOG, &GPIO_InitStructure);
   /* Latch is active high; initialise it low. */
   GPIO_ResetBits(GPIOG, GPIO_Pin_15);
 
-  /* GPIOH Configuration: LAT1 on PH3. */
+  /* GPIOH Configuration: LAT6 on PH3. */
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
   GPIO_Init(GPIOH, &GPIO_InitStructure);
@@ -247,25 +247,21 @@ setup_tlc_spi_dma()
   SPI_Cmd(SPI3, ENABLE);
 
   /*
-    Setup DMA.
-    SPI1 uses DMA2 stream 2 ch 3 (Rx) and stream 3 ch 3 (Tx).
-    SPI2 uses DMA1 stream 3 ch 0 (Rx) and stream 4 ch 0 (Tx).
-    SPI3 uses DMA1 stream 0 ch 0 (Rx) and stream 5 ch 0 (Tx).
-    SPI4 uses DMA2 stream 0 ch 4 (Rx) and stream 1 ch 4 (Tx).
-    SPI5 uses DMA2 stream 5 ch 7 (Rx) and stream 4 ch 2 (Tx).
-    ToDo: Also do SPI6; but this needs to not use DMA for Rx, as there is not room in channel selection for everything.
+    Setup DMA for SPI Tx.
+    SPI1 uses DMA2 stream 3 ch 3.
+    SPI2 uses DMA1 stream 4 ch 0.
+    SPI3 uses DMA1 stream 5 ch 0.
+    SPI4 uses DMA2 stream 1 ch 4.
+    SPI5 uses DMA2 stream 4 ch 2.
+    SPI6 uses DMA2 stream 5 ch 1.
   */
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA2, ENABLE);
-  DMA_DeInit(DMA2_Stream0);
   DMA_DeInit(DMA2_Stream1);
-  DMA_DeInit(DMA2_Stream2);
   DMA_DeInit(DMA2_Stream3);
   DMA_DeInit(DMA2_Stream4);
   DMA_DeInit(DMA2_Stream5);
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA1, ENABLE);
-  DMA_DeInit(DMA1_Stream3);
   DMA_DeInit(DMA1_Stream4);
-  DMA_DeInit(DMA1_Stream0);
   DMA_DeInit(DMA1_Stream5);
 
   DMA_InitStructure.DMA_BufferSize = 1;
@@ -285,56 +281,36 @@ setup_tlc_spi_dma()
   DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
   DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA2_Stream3, &DMA_InitStructure);
-  /* Configure SPI1 RX DMA */
-  DMA_InitStructure.DMA_Channel = DMA_Channel_3;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA2_Stream2, &DMA_InitStructure);
   /* Configure SPI2 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI2->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_0;
   DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
   DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA1_Stream4, &DMA_InitStructure);
-  /* Configure SPI2 RX DMA */
-  DMA_InitStructure.DMA_Channel = DMA_Channel_0;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA1_Stream3, &DMA_InitStructure);
   /* Configure SPI3 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI3->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_0;
   DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
   DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA1_Stream5, &DMA_InitStructure);
-  /* Configure SPI3 RX DMA */
-  DMA_InitStructure.DMA_Channel = DMA_Channel_0;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA1_Stream0, &DMA_InitStructure);
   /* Configure SPI4 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI4->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_4;
   DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
   DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA2_Stream1, &DMA_InitStructure);
-  /* Configure SPI4 RX DMA */
-  DMA_InitStructure.DMA_Channel = DMA_Channel_4;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA2_Stream0, &DMA_InitStructure);
   /* Configure SPI5 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI5->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_2;
   DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
   DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA2_Stream4, &DMA_InitStructure);
-  /* Configure SPI5 RX DMA */
-  DMA_InitStructure.DMA_Channel = DMA_Channel_7;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
+  /* Configure SPI6 TX DMA */
+  DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI6->DR));
+  DMA_InitStructure.DMA_Channel = DMA_Channel_1;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
   DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA2_Stream5, &DMA_InitStructure);
-  /* ToDo: SPI6. */
 }
 
 
@@ -556,14 +532,14 @@ setup_spi(void)
 {
   setup_tlc_spi_dma();
 
-  setup_tlc5955(0, SPI1, DMA2_Stream3, DMA_FLAG_TCIF3, GPIOH, GPIO_Pin_3);
-  setup_tlc5955(1, SPI2, DMA1_Stream4, DMA_FLAG_TCIF4, GPIOA, GPIO_Pin_4);
+  setup_tlc5955(0, SPI1, DMA2_Stream3, DMA_FLAG_TCIF3, GPIOA, GPIO_Pin_4);
+  setup_tlc5955(1, SPI2, DMA1_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_11);
   setup_tlc5955(2, SPI3, DMA1_Stream5, DMA_FLAG_TCIF5, GPIOG, GPIO_Pin_15);
   //setup_tlc5955(0 /* ToDo */, SPI4, DMA2_Stream1, DMA_FLAG_TCIF1, GPIOE, GPIO_Pin_15);
   /* ToDo: SPI5 hangs for some reason. */
-//  setup_tlc5955(1 /* ToDo */, SPI5, DMA2_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_11);
+//  setup_tlc5955(1 /* ToDo */, SPI5, DMA2_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_10);
   /* ToDo: SPI6. */
-  //setup_tlc5955(3 /* ToDo */, SPI6, DMA2_Stream5, DMA_FLAG_TCIF5, GPIOD, GPIO_Pin_10);
+  //setup_tlc5955(3 /* ToDo */, SPI6, DMA2_Stream5, DMA_FLAG_TCIF5, GPIOH, GPIO_Pin_3);
 }
 
 
