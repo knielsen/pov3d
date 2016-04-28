@@ -339,229 +339,53 @@ setup_tlc_spi_dma()
 
 
 static void
-tlc1_latch(void)
+tlc_latch(GPIO_TypeDef * latch_gpio, uint16_t latch_pin)
 {
   delay(1);
-  GPIO_SetBits(GPIOH, GPIO_Pin_3);
+  GPIO_SetBits(latch_gpio, latch_pin);
   delay(1);
-  GPIO_ResetBits(GPIOH, GPIO_Pin_3);
+  GPIO_ResetBits(latch_gpio, latch_pin);
   delay(1);
 }
 
 
 static void
-tlc3_latch(void)
+dma_to_tlc(uint8_t *outbuf, uint32_t len,
+           SPI_TypeDef *spi_dev, DMA_Stream_TypeDef *dma_stream,
+           uint32_t dma_flag)
 {
-  delay(1);
-  GPIO_SetBits(GPIOG, GPIO_Pin_15);
-  delay(1);
-  GPIO_ResetBits(GPIOG, GPIO_Pin_15);
-  delay(1);
+  dma_stream->M0AR = (uint32_t)outbuf;
+  dma_stream->NDTR = len;
+
+  DMA_Cmd(dma_stream, ENABLE);
+  SPI_I2S_DMACmd(spi_dev, SPI_I2S_DMAReq_Tx, ENABLE);
+  while (DMA_GetFlagStatus(dma_stream, dma_flag) == RESET)
+    ;
+  DMA_ClearFlag(dma_stream, dma_flag);
+  DMA_Cmd(dma_stream, DISABLE);
+  SPI_I2S_DMACmd(spi_dev, SPI_I2S_DMAReq_Tx, DISABLE);
+
+  while (!(spi_dev->SR & SPI_I2S_FLAG_TXE))
+    ;
+  while (spi_dev->SR & SPI_I2S_FLAG_BSY)
+    ;
+
+  /*
+    Clear out any pending not-read data.
+    (Overflow flag is cleared implicitly by reading the status register.)
+  */
+  while (spi_dev->SR & SPI_I2S_FLAG_RXNE)
+    (void)SPI_I2S_ReceiveData(spi_dev);
 }
-
-
-static void
-tlc2_latch(void)
-{
-  delay(1);
-  GPIO_SetBits(GPIOA, GPIO_Pin_4);
-  delay(1);
-  GPIO_ResetBits(GPIOA, GPIO_Pin_4);
-  delay(1);
-}
-
-
-static void
-tlc4_latch(void)
-{
-  delay(1);
-  GPIO_SetBits(GPIOE, GPIO_Pin_15);
-  delay(1);
-  GPIO_ResetBits(GPIOE, GPIO_Pin_15);
-  delay(1);
-}
-
-
-static void
-tlc5_latch(void)
-{
-  delay(1);
-  GPIO_SetBits(GPIOD, GPIO_Pin_11);
-  delay(1);
-  GPIO_ResetBits(GPIOD, GPIO_Pin_11);
-  delay(1);
-}
-
-
-#ifdef ToDo_SPI6
-static void
-tlc6_latch(void)
-{
-  delay(1);
-  GPIO_SetBits(GPIOD, GPIO_Pin_10);
-  delay(1);
-  GPIO_ResetBits(GPIOD, GPIO_Pin_10);
-  delay(1);
-}
-#endif
-
-
-static void
-dma_to_tlc1(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
-{
-  DMA2_Stream2->M0AR = (uint32_t)inbuf;
-  DMA2_Stream2->NDTR = len;
-  DMA2_Stream3->M0AR = (uint32_t)outbuf;
-  DMA2_Stream3->NDTR = len;
-
-  DMA_Cmd(DMA2_Stream2, ENABLE);
-  DMA_Cmd(DMA2_Stream3, ENABLE);
-  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Rx, ENABLE);
-  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, ENABLE);
-  while (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET)
-    ;
-  while (DMA_GetFlagStatus(DMA2_Stream2, DMA_FLAG_TCIF2)==RESET)
-    ;
-  DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
-  DMA_ClearFlag(DMA2_Stream2, DMA_FLAG_TCIF2);
-  DMA_Cmd(DMA2_Stream3, DISABLE);
-  DMA_Cmd(DMA2_Stream2, DISABLE);
-  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Rx, DISABLE);
-  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, DISABLE);
-
-  while (!(SPI1->SR & SPI_I2S_FLAG_TXE))
-    ;
-  while (SPI1->SR & SPI_I2S_FLAG_BSY)
-    ;
-}
-
-
-static void
-dma_to_tlc2(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
-{
-  DMA1_Stream3->M0AR = (uint32_t)inbuf;
-  DMA1_Stream3->NDTR = len;
-  DMA1_Stream4->M0AR = (uint32_t)outbuf;
-  DMA1_Stream4->NDTR = len;
-
-  DMA_Cmd(DMA1_Stream3, ENABLE);
-  DMA_Cmd(DMA1_Stream4, ENABLE);
-  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Rx, ENABLE);
-  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Tx, ENABLE);
-  while (DMA_GetFlagStatus(DMA1_Stream4, DMA_FLAG_TCIF4) == RESET)
-    ;
-  while (DMA_GetFlagStatus(DMA1_Stream3, DMA_FLAG_TCIF3)==RESET)
-    ;
-  DMA_ClearFlag(DMA1_Stream4, DMA_FLAG_TCIF4);
-  DMA_ClearFlag(DMA1_Stream3, DMA_FLAG_TCIF3);
-  DMA_Cmd(DMA1_Stream4, DISABLE);
-  DMA_Cmd(DMA1_Stream3, DISABLE);
-  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Rx, DISABLE);
-  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Tx, DISABLE);
-
-  while (!(SPI2->SR & SPI_I2S_FLAG_TXE))
-    ;
-  while (SPI2->SR & SPI_I2S_FLAG_BSY)
-    ;
-}
-
-
-static void
-dma_to_tlc3(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
-{
-  DMA1_Stream0->M0AR = (uint32_t)inbuf;
-  DMA1_Stream0->NDTR = len;
-  DMA1_Stream5->M0AR = (uint32_t)outbuf;
-  DMA1_Stream5->NDTR = len;
-
-  DMA_Cmd(DMA1_Stream0, ENABLE);
-  DMA_Cmd(DMA1_Stream5, ENABLE);
-  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Rx, ENABLE);
-  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Tx, ENABLE);
-  while (DMA_GetFlagStatus(DMA1_Stream5, DMA_FLAG_TCIF5) == RESET)
-    ;
-  while (DMA_GetFlagStatus(DMA1_Stream0, DMA_FLAG_TCIF0)==RESET)
-    ;
-  DMA_ClearFlag(DMA1_Stream5, DMA_FLAG_TCIF5);
-  DMA_ClearFlag(DMA1_Stream0, DMA_FLAG_TCIF0);
-  DMA_Cmd(DMA1_Stream5, DISABLE);
-  DMA_Cmd(DMA1_Stream0, DISABLE);
-  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Rx, DISABLE);
-  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Tx, DISABLE);
-
-  while (!(SPI3->SR & SPI_I2S_FLAG_TXE))
-    ;
-  while (SPI3->SR & SPI_I2S_FLAG_BSY)
-    ;
-}
-
-
-static void
-dma_to_tlc4(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
-{
-  DMA2_Stream0->M0AR = (uint32_t)inbuf;
-  DMA2_Stream0->NDTR = len;
-  DMA2_Stream1->M0AR = (uint32_t)outbuf;
-  DMA2_Stream1->NDTR = len;
-
-  DMA_Cmd(DMA2_Stream0, ENABLE);
-  DMA_Cmd(DMA2_Stream1, ENABLE);
-  SPI_I2S_DMACmd(SPI4, SPI_I2S_DMAReq_Rx, ENABLE);
-  SPI_I2S_DMACmd(SPI4, SPI_I2S_DMAReq_Tx, ENABLE);
-  while (DMA_GetFlagStatus(DMA2_Stream1, DMA_FLAG_TCIF1) == RESET)
-    ;
-  while (DMA_GetFlagStatus(DMA2_Stream0, DMA_FLAG_TCIF0)==RESET)
-    ;
-  DMA_ClearFlag(DMA2_Stream1, DMA_FLAG_TCIF1);
-  DMA_ClearFlag(DMA2_Stream0, DMA_FLAG_TCIF0);
-  DMA_Cmd(DMA2_Stream1, DISABLE);
-  DMA_Cmd(DMA2_Stream0, DISABLE);
-  SPI_I2S_DMACmd(SPI4, SPI_I2S_DMAReq_Rx, DISABLE);
-  SPI_I2S_DMACmd(SPI4, SPI_I2S_DMAReq_Tx, DISABLE);
-
-  while (!(SPI4->SR & SPI_I2S_FLAG_TXE))
-    ;
-  while (SPI4->SR & SPI_I2S_FLAG_BSY)
-    ;
-}
-
-
-static void
-dma_to_tlc5(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
-{
-  DMA2_Stream5->M0AR = (uint32_t)inbuf;
-  DMA2_Stream5->NDTR = len;
-  DMA2_Stream4->M0AR = (uint32_t)outbuf;
-  DMA2_Stream4->NDTR = len;
-
-  DMA_Cmd(DMA2_Stream5, ENABLE);
-  DMA_Cmd(DMA2_Stream4, ENABLE);
-  SPI_I2S_DMACmd(SPI5, SPI_I2S_DMAReq_Rx, ENABLE);
-  SPI_I2S_DMACmd(SPI5, SPI_I2S_DMAReq_Tx, ENABLE);
-  while (DMA_GetFlagStatus(DMA2_Stream4, DMA_FLAG_TCIF4) == RESET)
-    ;
-  while (DMA_GetFlagStatus(DMA2_Stream5, DMA_FLAG_TCIF5)==RESET)
-    ;
-  DMA_ClearFlag(DMA2_Stream4, DMA_FLAG_TCIF4);
-  DMA_ClearFlag(DMA2_Stream5, DMA_FLAG_TCIF5);
-  DMA_Cmd(DMA2_Stream4, DISABLE);
-  DMA_Cmd(DMA2_Stream5, DISABLE);
-  SPI_I2S_DMACmd(SPI5, SPI_I2S_DMAReq_Rx, DISABLE);
-  SPI_I2S_DMACmd(SPI5, SPI_I2S_DMAReq_Tx, DISABLE);
-
-  while (!(SPI5->SR & SPI_I2S_FLAG_TXE))
-    ;
-  while (SPI5->SR & SPI_I2S_FLAG_BSY)
-    ;
-}
-
-
-/* ToDo: SPI6. */
 
 
 static void
 read_from_tlc(SPI_TypeDef *spi_dev, uint8_t *buf, uint32_t len)
 {
+  /* Clear out any pending not-read data. */
+  while (spi_dev->SR & SPI_I2S_FLAG_RXNE)
+    (void)SPI_I2S_ReceiveData(spi_dev);
+
   while (len > 0)
   {
     while (!(spi_dev->SR & SPI_I2S_FLAG_TXE))
@@ -686,11 +510,11 @@ fill_tlc5955_gs_latch(uint8_t *buf, uint32_t max_gs)
 
 
 static void
-setup_tlc5955(uint32_t tlc_idx, void (*latch_func)(void),
-              void (*dma_func)(uint8_t *, uint8_t *, uint32_t),
-              SPI_TypeDef *spi_dev)
+setup_tlc5955(uint32_t tlc_idx, SPI_TypeDef *spi_dev,
+              DMA_Stream_TypeDef *dma_stream, uint32_t dma_flag,
+              GPIO_TypeDef * latch_gpio, uint16_t latch_pin)
 {
-  uint8_t databuf[193], inbuf[193], tmpbuf[193];
+  uint8_t databuf[193], inbuf[193];
 
   /*
     MC=4 is 19.1 mA max.
@@ -701,11 +525,11 @@ setup_tlc5955(uint32_t tlc_idx, void (*latch_func)(void),
   fill_tlc5955_control_latch(databuf, tlc_idx, led_intensity, 4);
   serial_puts("Sending control register data to TLC5955:\r\n");
   serial_dump_buf(databuf, sizeof(databuf));
-  (*dma_func)(databuf, tmpbuf, sizeof(databuf));
-  (*latch_func)();
+  dma_to_tlc(databuf, sizeof(databuf), spi_dev, dma_stream, dma_flag);
+  tlc_latch(latch_gpio, latch_pin);
 
   read_from_tlc(spi_dev, inbuf, sizeof(inbuf));
-  (*latch_func)();
+  tlc_latch(latch_gpio, latch_pin);
   /* Since we shift out 7 bits too many, we need to adjust the result read. */
   shift_buf_6_bits(inbuf, 193);
   if (0 != memcmp(databuf, inbuf, sizeof(databuf)))
@@ -717,13 +541,13 @@ setup_tlc5955(uint32_t tlc_idx, void (*latch_func)(void),
   }
   else
     serial_puts("Control data verified ok, rewrite to confirm config\r\n");
-  (*dma_func)(databuf, tmpbuf, sizeof(databuf));
-  (*latch_func)();
+  dma_to_tlc(databuf, sizeof(databuf), spi_dev, dma_stream, dma_flag);
+  tlc_latch(latch_gpio, latch_pin);
   serial_puts("Now load some GS data ...\r\n");
   fill_tlc5955_gs_latch(databuf, 4095);
   serial_dump_buf(databuf, sizeof(databuf));
-  (*dma_func)(databuf, tmpbuf, sizeof(databuf));
-  (*latch_func)();
+  dma_to_tlc(databuf, sizeof(databuf), spi_dev, dma_stream, dma_flag);
+  tlc_latch(latch_gpio, latch_pin);
 }
 
 
@@ -732,14 +556,14 @@ setup_spi(void)
 {
   setup_tlc_spi_dma();
 
-  setup_tlc5955(0, tlc1_latch, dma_to_tlc1, SPI1);
-  setup_tlc5955(1, tlc2_latch, dma_to_tlc2, SPI2);
-  setup_tlc5955(2, tlc3_latch, dma_to_tlc3, SPI3);
-  //setup_tlc5955(0 /* ToDo */, tlc4_latch, dma_to_tlc4, SPI4);
+  setup_tlc5955(0, SPI1, DMA2_Stream3, DMA_FLAG_TCIF3, GPIOH, GPIO_Pin_3);
+  setup_tlc5955(1, SPI2, DMA1_Stream4, DMA_FLAG_TCIF4, GPIOA, GPIO_Pin_4);
+  setup_tlc5955(2, SPI3, DMA1_Stream5, DMA_FLAG_TCIF5, GPIOG, GPIO_Pin_15);
+  //setup_tlc5955(0 /* ToDo */, SPI4, DMA2_Stream1, DMA_FLAG_TCIF1, GPIOE, GPIO_Pin_15);
   /* ToDo: SPI5 hangs for some reason. */
-//  setup_tlc5955(1 /* ToDo */, tlc5_latch, dma_to_tlc5, SPI5);
+//  setup_tlc5955(1 /* ToDo */, SPI5, DMA2_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_11);
   /* ToDo: SPI6. */
-  //setup_tlc5955(3, tlc6_latch, dma_to_tlc6, SPI6);
+  //setup_tlc5955(3 /* ToDo */, SPI6, DMA2_Stream5, DMA_FLAG_TCIF5, GPIOD, GPIO_Pin_10);
 }
 
 
