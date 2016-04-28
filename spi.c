@@ -558,6 +558,24 @@ dma_to_tlc5(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
 
 /* ToDo: SPI6. */
 
+
+static void
+read_from_tlc(SPI_TypeDef *spi_dev, uint8_t *buf, uint32_t len)
+{
+  while (len > 0)
+  {
+    while (!(spi_dev->SR & SPI_I2S_FLAG_TXE))
+      ;
+    SPI_I2S_SendData(spi_dev, 0);
+    while (!(spi_dev->SR & SPI_I2S_FLAG_RXNE))
+      ;
+    *buf = SPI_I2S_ReceiveData(spi_dev);
+    ++buf;
+    --len;
+  }
+}
+
+
 static void
 add_bits(uint8_t *buf, uint32_t len, uint32_t val, uint32_t size, uint32_t *pos)
 {
@@ -669,7 +687,8 @@ fill_tlc5955_gs_latch(uint8_t *buf, uint32_t max_gs)
 
 static void
 setup_tlc5955(uint32_t tlc_idx, void (*latch_func)(void),
-              void (*dma_func)(uint8_t *, uint8_t *, uint32_t))
+              void (*dma_func)(uint8_t *, uint8_t *, uint32_t),
+              SPI_TypeDef *spi_dev)
 {
   uint8_t databuf[193], inbuf[193], tmpbuf[193];
 
@@ -682,11 +701,10 @@ setup_tlc5955(uint32_t tlc_idx, void (*latch_func)(void),
   fill_tlc5955_control_latch(databuf, tlc_idx, led_intensity, 4);
   serial_puts("Sending control register data to TLC5955:\r\n");
   serial_dump_buf(databuf, sizeof(databuf));
-  (*dma_func)(databuf, inbuf, sizeof(databuf));
+  (*dma_func)(databuf, tmpbuf, sizeof(databuf));
   (*latch_func)();
 
-  memset(tmpbuf, 0x00, sizeof(tmpbuf));
-  (*dma_func)(tmpbuf, inbuf, sizeof(tmpbuf));
+  read_from_tlc(spi_dev, inbuf, sizeof(inbuf));
   (*latch_func)();
   /* Since we shift out 7 bits too many, we need to adjust the result read. */
   shift_buf_6_bits(inbuf, 193);
@@ -699,12 +717,12 @@ setup_tlc5955(uint32_t tlc_idx, void (*latch_func)(void),
   }
   else
     serial_puts("Control data verified ok, rewrite to confirm config\r\n");
-  (*dma_func)(databuf, inbuf, sizeof(databuf));
+  (*dma_func)(databuf, tmpbuf, sizeof(databuf));
   (*latch_func)();
   serial_puts("Now load some GS data ...\r\n");
-  fill_tlc5955_gs_latch(tmpbuf, 4095);
-  serial_dump_buf(tmpbuf, sizeof(tmpbuf));
-  (*dma_func)(tmpbuf, inbuf, sizeof(tmpbuf));
+  fill_tlc5955_gs_latch(databuf, 4095);
+  serial_dump_buf(databuf, sizeof(databuf));
+  (*dma_func)(databuf, tmpbuf, sizeof(databuf));
   (*latch_func)();
 }
 
@@ -714,13 +732,14 @@ setup_spi(void)
 {
   setup_tlc_spi_dma();
 
-  setup_tlc5955(0, tlc1_latch, dma_to_tlc1);
-  setup_tlc5955(1, tlc2_latch, dma_to_tlc2);
-  setup_tlc5955(2, tlc3_latch, dma_to_tlc3);
-  //setup_tlc5955(0 /* ToDo */, tlc4_latch, dma_to_tlc4);
+  setup_tlc5955(0, tlc1_latch, dma_to_tlc1, SPI1);
+  setup_tlc5955(1, tlc2_latch, dma_to_tlc2, SPI2);
+  setup_tlc5955(2, tlc3_latch, dma_to_tlc3, SPI3);
+  //setup_tlc5955(0 /* ToDo */, tlc4_latch, dma_to_tlc4, SPI4);
   /* ToDo: SPI5 hangs for some reason. */
-//  setup_tlc5955(1 /* ToDo */, tlc5_latch, dma_to_tlc5);
+//  setup_tlc5955(1 /* ToDo */, tlc5_latch, dma_to_tlc5, SPI5);
   /* ToDo: SPI6. */
+  //setup_tlc5955(3, tlc6_latch, dma_to_tlc6, SPI6);
 }
 
 
