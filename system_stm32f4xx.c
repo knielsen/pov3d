@@ -361,6 +361,7 @@
 /*!< Uncomment the following line if you need to relocate your vector Table in
      Internal SRAM. */
 /* #define VECT_TAB_SRAM */
+#define USE_BOOTLOADER
 #ifdef USE_BOOTLOADER
 #define VECT_TAB_OFFSET  0x4000
 #else

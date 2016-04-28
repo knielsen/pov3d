@@ -81,8 +81,7 @@ stm324xg_eval_sdio_sd.c: $(ST_SDIO_SD_C)
 	$(OBJCOPY) -O binary $< $@
 
 flash: $(TARGET).bin
-	#st-flash write $(TARGET).bin 0x8004000
-	st-flash write $(TARGET).bin 0x8000000
+	st-flash write $(TARGET).bin 0x8004000
 
 clean:
 	rm -f $(OBJS) $(STM_OBJS) $(TARGET).elf $(TARGET).bin $(STARTUP_OBJ) \
