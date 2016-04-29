@@ -5,13 +5,20 @@ use Math::Trig;
 
 my $mode = ($ARGV[0] or 1);
 
-my ($i, $j, $x, $y, $a);
-my $W = 7/2*5.5/tan(deg2rad(37.5))-10.9;
+my $n_layers = 16;
+my $n_leds = 14;
+my $pcb_angle = 37.5;
+my $l_pix = 4.0;
+my $extra = -27.48*$l_pix/5.5;
+my $h_pix = $l_pix;
 
-for $j (0,1,2,3,4,5,6) {
-  for $i (-3.5,-2.5,-1.5,-0.5,0.5,1.5,2.5,3.5) {
-    $y = $i*5.5/tan(deg2rad(37.5));
-    $x = ($W+$j*5.5)**2 - $y**2;
+my ($i, $j, $x, $y, $a);
+my $W = ($n_layers-1)/2*$h_pix/tan(deg2rad($pcb_angle)) + $extra;
+
+for $j (0 .. ($n_leds-1)) {
+  for ($i = -($n_layers-1)/2; $i < (($n_layers-1)/2)+0.5; ++$i) {
+    $y = $i*$h_pix/tan(deg2rad($pcb_angle));
+    $x = ($W+$j*$l_pix)**2 - $y**2;
     if ($x < 0) {
       print "*\t";
       next;

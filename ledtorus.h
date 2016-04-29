@@ -35,23 +35,32 @@
 
 
 /*
-  In the LED-torus prototype, we have 7 (horizontal) x 8 (vertical) RGB LEDs.
-  But the corners are cut, so that these LEDs are missing, counting the X
+  In the LED-torus 2, we have 14 (horizontal) x 16 (vertical) RGB LEDs.
+  But the inner corners are cut, so that some LEDs are missing, counting the X
   direction from the center and out, and the Y direction from the bottom up:
 
-    (0,0) (0,1) (0,6) (0,7) (1,0) (1,7) (6,0) (6,7)
+    (0-4,0) (0-3,1) (0-2,2) (0-1,3) (0,4) (0,5)
+    (0-4,15) (0-3,14) (0-2,13) (0-1,12) (0,11) (0,10)
 
-         * * * *
-       * * * * * *
-     * * * * * * *
-     * * * * * * *
-     * * * * * * *
-     * * * * * * *
-       * * * * * *
-         * * * *
+               * * * * * * * * *
+             * * * * * * * * * *
+           * * * * * * * * * * *
+         * * * * * * * * * * * *
+       * * * * * * * * * * * * *
+       * * * * * * * * * * * * *
+     * * * * * * * * * * * * * *
+     * * * * * * * * * * * * * *
+     * * * * * * * * * * * * * *
+     * * * * * * * * * * * * * *
+       * * * * * * * * * * * * *
+       * * * * * * * * * * * * *
+         * * * * * * * * * * * *
+           * * * * * * * * * * *
+             * * * * * * * * * *
+               * * * * * * * * *
 */
-#define LEDS_X 7
-#define LEDS_Y 8
+#define LEDS_X 14
+#define LEDS_Y 16
 #define LEDS_TANG 205
 #define FRAMERATE 25
 
@@ -61,7 +70,7 @@
 typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
 
 
-/* Based on TIM5, running at 84 MHz. */
+/* Based on TIM5, running at 90 MHz. */
 #define GSCLK_PERIOD 4
 
 
@@ -72,7 +81,7 @@ typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
   Note that changing frequence requires more code changes than just changing
   this constant.
 */
-#define MCU_HZ 168000000
+#define MCU_HZ 180000000
 
 
 /* my_misc.c */
@@ -149,6 +158,7 @@ extern uint8_t (*display_framebuf(void))[LEDS_Y*LEDS_X*LEDS_TANG][3];
 extern void flip_framebuf(void);
 extern void led_decrease_intensity(void);
 extern void led_increase_intensity(void);
+extern void adjust_scanplane(uint32_t scanplane[25]);
 
 /* gfx.c */
 union anim_data;

@@ -335,17 +335,17 @@ EXTI0_IRQHandler(void)
         Change LED intensity, by generating new control data instead in the
         coming scanplanes, and shifting it out twice over the next two rounds.
       */
-      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][0]) + 1,
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][0]) + 3,
                                  0, intensity, 4);
-      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][1]) + 1,
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][1]) + 3,
                                  1, intensity, 4);
-      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][2]) + 1,
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][2]) + 3,
                                  2, intensity, 4);
-      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][3]) + 1,
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][3]) + 3,
                                  0/*ToDo*/, intensity, 4);
-      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][4]) + 1,
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][4]) + 3,
                                  1/*ToDo*/, intensity, 4);
-      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][5]) + 1,
+      fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][5]) + 3,
                                  2/*ToDo*/, intensity, 4);
       counter = intensity_flag >> 8;
       /* Generate control data twice, then go back to normal operation. */

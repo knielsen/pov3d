@@ -453,9 +453,8 @@ fill_tlc5955_control_latch(uint8_t *buf,
   {
     for (i = 0; i < 48; ++i)
     {
-      uint32_t led = i/3;
+      uint32_t led = j*16+i/3;
       uint32_t dc_adj;
-      /* ToDo: This needs to use an updated table, and take into account the 'j' index. */
       float dist = led_distance_to_center_tlc(tlc_idx, led);
       float dc_fact = dist / max_dist;
       /* Minimum brightness @ DC=0 is 26.2%. */
@@ -570,11 +569,11 @@ setup_spi(void)
   setup_tlc5955(2, SPI3, DMA1_Stream5, DMA_FLAG_TCIF5, GPIOG, GPIO_Pin_15);
   /* ToDo: Solder pad on U10/U11 (SPI4) is ruined (?) */
   serial_puts("Setting up TLC U10/U11 on SPI4...\r\n");
-  setup_tlc5955(0 /* ToDo */, SPI4, DMA2_Stream1, DMA_FLAG_TCIF1, GPIOE, GPIO_Pin_15);
+  setup_tlc5955(3, SPI4, DMA2_Stream1, DMA_FLAG_TCIF1, GPIOE, GPIO_Pin_15);
   serial_puts("Setting up TLC U14/U15 on SPI5...\r\n");
-  setup_tlc5955(1 /* ToDo */, SPI5, DMA2_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_10);
+  setup_tlc5955(4, SPI5, DMA2_Stream4, DMA_FLAG_TCIF4, GPIOD, GPIO_Pin_10);
   serial_puts("Setting up TLC U4/U5 on SPI6...\r\n");
-  setup_tlc5955(2 /* ToDo */, SPI6, DMA2_Stream5, DMA_FLAG_TCIF5, GPIOH, GPIO_Pin_3);
+  setup_tlc5955(5, SPI6, DMA2_Stream5, DMA_FLAG_TCIF5, GPIOH, GPIO_Pin_3);
 }
 
 
@@ -582,9 +581,9 @@ setup_spi(void)
   Start transfer of scanplanes to the TLC5955 chips.
 
   The scanplanes are each a sequence of 48 16-bit PWM grayscale values in
-  big-endian format. The scanplanes should have a leading 0x0000 word (only
-  the one bit is needed to mark GS data, but 16 using bits makes all GS values
-  16-bit aligned.
+  big-endian format. The scanplanes should have a leading 0x00000000 word (only
+  the one bit is needed to mark GS data, but using 32 bits makes all GS values
+  32-bit aligned for faster operation.
 
   This function only starts the DMA transfer. After the transfer is complete,
   the latch_scanplanes() function must be called to actually latch the GS
@@ -599,7 +598,7 @@ void
 start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3,
                      uint32_t *p4, uint32_t *p5, uint32_t *p6)
 {
-  static const uint32_t len = 2*48*2+2;/* 2 TLCs each 48 outputs + extra word */
+  static const uint32_t len = 2*48*2+4;/* 2 TLCs each 48 outputs + extra word */
 
   DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
   DMA_ClearFlag(DMA1_Stream4, DMA_FLAG_TCIF4);
