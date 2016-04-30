@@ -1,11 +1,21 @@
 /*
   Timers.
 
-  We use TIM5 ch1-3 (on PA0-2) for GSCLKs.
+  GSCLKs on TIM4 ch1-3 and TIM5 ch1-3 (PD12-14 and PA0-2):
 
-  TIM5 is on the 42 MHz bus, so max timer frequency is 84 MHz.
-  To get 50% duty cycle (and for GPIO to keep up?), max GSCLK is then 21 MHz.
+    SPI1   U8/U9   PA2  TIM5 CH3
+    SPI2 U12/U13  PD13  TIM4 CH2
+    SPI3   U6/U7   PA1  TIM5 CH2
+    SPI4 U10/U11  PD12  TIM4 CH1
+    SPI5 U14/U15  PD14  TIM4 CH3
+    SPI6   U4/U5   PA0  TIM5 CH1
+
+  TIM4 and TIM5 are on the 45 MHz bus, so timer frequency is 90 MHz.
+  To get 50% duty cycle (and for GPIO to keep up?), max GSCLK is then 22.5 MHz.
   This is obtained with a PWM period of 4.
+
+  ToDo: On STM32F469, 180 MHz timer frequency is possible, so we could go to
+  30 MHz GSCLKs (period 6).
 */
 
 #include "ledtorus.h"
@@ -26,16 +36,23 @@ setup_gsclks(void)
   TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
   TIM_OCInitTypeDef TIM_OCInitStructure;
 
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM5, ENABLE);
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
 
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2;
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
   GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
   GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL ;
+  GPIO_Init(GPIOD, &GPIO_InitStructure);
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2;
   GPIO_Init(GPIOA, &GPIO_InitStructure);
 
+  GPIO_PinAFConfig(GPIOD, GPIO_PinSource12, GPIO_AF_TIM4);
+  GPIO_PinAFConfig(GPIOD, GPIO_PinSource13, GPIO_AF_TIM4);
+  GPIO_PinAFConfig(GPIOD, GPIO_PinSource14, GPIO_AF_TIM4);
   GPIO_PinAFConfig(GPIOA, GPIO_PinSource0, GPIO_AF_TIM5);
   GPIO_PinAFConfig(GPIOA, GPIO_PinSource1, GPIO_AF_TIM5);
   GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_TIM5);
@@ -44,6 +61,7 @@ setup_gsclks(void)
   TIM_TimeBaseStructure.TIM_Prescaler = 0;
   TIM_TimeBaseStructure.TIM_ClockDivision = 0;
   TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+  TIM_TimeBaseInit(TIM4, &TIM_TimeBaseStructure);
   TIM_TimeBaseInit(TIM5, &TIM_TimeBaseStructure);
 
   TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
@@ -51,14 +69,22 @@ setup_gsclks(void)
   TIM_OCInitStructure.TIM_Pulse = GSCLK_PERIOD/2;
   TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
 
+  TIM_OC1Init(TIM4, &TIM_OCInitStructure);
+  TIM_OC2Init(TIM4, &TIM_OCInitStructure);
+  TIM_OC3Init(TIM4, &TIM_OCInitStructure);
   TIM_OC1Init(TIM5, &TIM_OCInitStructure);
   TIM_OC2Init(TIM5, &TIM_OCInitStructure);
   TIM_OC3Init(TIM5, &TIM_OCInitStructure);
 
+  TIM_OC1PreloadConfig(TIM4, TIM_OCPreload_Enable);
+  TIM_OC2PreloadConfig(TIM4, TIM_OCPreload_Enable);
+  TIM_OC3PreloadConfig(TIM4, TIM_OCPreload_Enable);
   TIM_OC1PreloadConfig(TIM5, TIM_OCPreload_Enable);
   TIM_OC2PreloadConfig(TIM5, TIM_OCPreload_Enable);
   TIM_OC3PreloadConfig(TIM5, TIM_OCPreload_Enable);
+  TIM_ARRPreloadConfig(TIM4, ENABLE);
   TIM_ARRPreloadConfig(TIM5, ENABLE);
+  TIM_Cmd(TIM4, ENABLE);
   TIM_Cmd(TIM5, ENABLE);
 }
 
@@ -429,7 +455,7 @@ setup_timers(void)
 {
   setup_systick();
   /* ToDo */
-//  setup_gsclks();
+  setup_gsclks();
 //  setup_scanplane_timer();
 //  setup_softint();
 }

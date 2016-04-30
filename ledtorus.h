@@ -70,7 +70,7 @@
 typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
 
 
-/* Based on TIM5, running at 90 MHz. */
+/* Based on TIM4/TIM5, running at 90 MHz. */
 #define GSCLK_PERIOD 4
 
 
