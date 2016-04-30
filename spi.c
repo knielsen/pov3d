@@ -227,7 +227,7 @@ setup_tlc_spi_dma()
   SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;
   SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;
   SPI_InitStructure.SPI_NSS = SPI_NSS_Soft | SPI_NSSInternalSoft_Set;
-  SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
+  SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_LSB;
   SPI_InitStructure.SPI_CRCPolynomial = 7;
   /* SPI1/4/5/6 is on the 90 MHz APB2, so prescalar 4 is 22.5 MHz. */
   SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;
@@ -406,7 +406,7 @@ add_bits(uint8_t *buf, uint32_t len, uint32_t val, uint32_t size, uint32_t *pos)
   while (size)
   {
     if (val & 1)
-      buf[len - 1 - (loc_pos>>3)] |= 1 << (loc_pos & 7);
+      buf[len - 1 - (loc_pos>>3)] |= 1 << (7-(loc_pos & 7));
     val >>= 1;
     --size;
     ++loc_pos;
@@ -425,7 +425,7 @@ shift_buf_6_bits(uint8_t *buf, uint32_t len)
   for (i = 0; i < len; ++i)
   {
     uint8_t val = buf[i];
-    buf[i] = (old << 2) | (val >> 6);
+    buf[i] = (old >> 2) | (val << 6);
     old = val;
   }
 }
