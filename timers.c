@@ -166,24 +166,18 @@ void TIM6_DAC_IRQHandler(void)
       latch_scanplanes();
 
     idx = scanbuffer_idx;
-#ifdef ToDo_Not_yet
     if (ic >= 2 && !is_tlc_dma_done())
-#else
-    if (0)
-#endif
     {
       serial_putchar('!');
     }
     else if (ic >= 1)
     {
-#ifdef ToDo_Not_yet
       start_dma_scanplanes(scanplane_buffers[idx][0],
                            scanplane_buffers[idx][1],
                            scanplane_buffers[idx][2],
                            scanplane_buffers[idx][3],
                            scanplane_buffers[idx][4],
                            scanplane_buffers[idx][5]);
-#endif
     }
 
     if (ic < 2)
@@ -357,7 +351,6 @@ EXTI0_IRQHandler(void)
       flip_framebuf();
     }
 
-#ifdef ToDo_Not_yet
     intensity_flag = change_intensity_flag;
     if (intensity_flag)
     {
@@ -396,7 +389,6 @@ EXTI0_IRQHandler(void)
                        scanplane_buffers[idx][4],
                        scanplane_buffers[idx][5]);
     }
-#endif
 
     /* Clear the pending interrupt event. */
     EXTI->PR = EXTI_Line0;
