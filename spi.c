@@ -658,6 +658,7 @@ latch_scanplanes(void)
 uint32_t
 is_tlc_dma_done(void)
 {
+  /* ToDo: Probably worth it to speed up this with direct register access? */
   if (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET ||
       DMA_GetFlagStatus(DMA1_Stream4, DMA_FLAG_TCIF4) == RESET ||
       DMA_GetFlagStatus(DMA1_Stream5, DMA_FLAG_TCIF5) == RESET ||
