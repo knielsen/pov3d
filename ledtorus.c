@@ -30,58 +30,6 @@ main(void)
   setup_hall();
   serial_puts("Setup done, starting loop...\r\n");
 
-  {
-    uint32_t buf[51];
-    uint32_t t1, t2;
-    serial_puts("testing adjust_scanplane()...\r\n");
-    memset(buf, 0, sizeof(buf));
-    buf[0] = 0x42424242;
-    buf[50] = 0xabadcafe;
-    buf[2] = 0x80000003;
-    buf[4] = 0x0000aaaa;
-    buf[5] = 0xaaaa0000;
-    buf[10] = 0x5555aaaa;
-    buf[11] = 0x5555aaaa;
-    buf[12] = 0x5555aaaa;
-    buf[13] = 0x5555aaaa;
-    buf[14] = 0x5555aaaa;
-    buf[18] = 0x12345678;
-    buf[19] = 0x12345678;
-    buf[20] = 0x12345678;
-    buf[21] = 0x12345678;
-    buf[22] = 0x12345678;
-    buf[23] = 0x12345678;
-    buf[24] = 0x12345678;
-    buf[25] = 0x1234567f;
-    buf[32] = 0x12345678;
-    buf[33] = 0x12345678;
-    buf[34] = 0x12345678;
-    buf[35] = 0x12345678;
-    buf[36] = 0x12345678;
-    buf[37] = 0x12345678;
-    buf[38] = 0x12345678;
-    buf[39] = 0x12345678;
-    serial_dump_buf((uint8_t *)buf, sizeof(buf));
-    t1 = get_time();
-    adjust_scanplane(buf+1);
-    t2 = get_time();
-    serial_dump_buf((uint8_t *)buf, sizeof(buf));
-    serial_puts("Time spent: "); println_uint32(calc_time_from_val(t1, t2));
-    serial_puts("Dat's all\r\n");
-  }
-  for (;;)
-  {
-    float val;
-
-    led_on();
-    delay(MCU_HZ/3/4);
-    led_off();
-    delay(MCU_HZ/3/4);
-    val = voltage_read_vrefint_adjust();
-    serial_puts("Battery voltage: ");
-    println_float(val, 1, 3);
-  }
-
   anim_state = 0;
   test_img1();
   old_frame_counter = 42;

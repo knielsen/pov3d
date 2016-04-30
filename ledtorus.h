@@ -6,7 +6,7 @@
 #define PCB_POV3D_2
 //#define LILLE_VIDUNDER
 
-//#define SERIAL_DBG
+#define SERIAL_DBG
 //#define DEBUG_SPEED_STABILITY 1
 
 #ifdef STM32F4_DISCOVERY

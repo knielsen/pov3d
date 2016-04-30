@@ -1220,14 +1220,17 @@ an_planetest(frame_t *f, uint32_t frame,
 
 
 const struct ledtorus_anim anim_table[] = {
+#ifdef NOT_YET_CHECKED_FOR_LEDTORUS2
   { "Status",
     "Couple of scroll-texts displaying status",
     750, NULL, NULL, an_supply_voltage },
+#endif
 
   { "Ghost",
     "Animated cosine-wave",
     750, NULL, NULL, an_ghost },
 
+#ifdef NOT_YET_CHECKED_FOR_LEDTORUS2
   { "Fireworks",
     "Fireworks animation",
     1000, NULL, in_fireworks, an_fireworks },
@@ -1247,6 +1250,7 @@ const struct ledtorus_anim anim_table[] = {
   { "PlaneTest",
     "Plane/polygon drawing test",
     512, NULL, NULL, an_planetest },
+#endif
 /*
   { "StabilityTest",
     "Test image to help debug image stability",
@@ -1259,11 +1263,10 @@ const struct ledtorus_anim anim_table[] = {
   { "TestImg2",
     "Simple A-constant test image to test new LedTorus PCBs",
     250, NULL, NULL, an_test_img2 },
-
+*/
   { "TestImg3",
     "Test-image with _all_ LEDs constant on at maximum",
     250, NULL, NULL, an_test_img3 },
-*/
 };
 const uint32_t anim_table_length = sizeof(anim_table)/sizeof(anim_table[0]);
 
