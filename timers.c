@@ -368,11 +368,11 @@ EXTI0_IRQHandler(void)
       fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][2]) + 3,
                                  2, intensity, 4);
       fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][3]) + 3,
-                                 0/*ToDo*/, intensity, 4);
+                                 3, intensity, 4);
       fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][4]) + 3,
-                                 1/*ToDo*/, intensity, 4);
+                                 4, intensity, 4);
       fill_tlc5955_control_latch((uint8_t *)(scanplane_buffers[idx][5]) + 3,
-                                 2/*ToDo*/, intensity, 4);
+                                 5, intensity, 4);
       counter = intensity_flag >> 8;
       /* Generate control data twice, then go back to normal operation. */
       if (counter == 2)

@@ -260,6 +260,8 @@ init_tlc(void)
 
     We byteswap as Cortex M4 is little endian, while the TLC5955's are big
     endian.
+
+    ToDo: Use __RBIT instead, and shift out little-endian.
   */
   for (i = 0; i < 256; ++i)
     gammas[i] = __REV16(gammas_flash[i]*16);

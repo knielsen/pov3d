@@ -17,7 +17,7 @@ main(void)
   serial_puts("\r\n\r\nPOV3D Copyright 2015,2016 Kristian Nielsen\r\n");
   serial_puts("Setting up TLCs...\r\n");
   setup_spi();
-//  init_tlc();
+  init_tlc();
   serial_puts("Configuring ADC...\r\n");
   config_adc();
   serial_puts("Starting timers...\r\n");
