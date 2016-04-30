@@ -305,7 +305,7 @@ flip_framebuf(void)
 }
 
 
-uint8_t led_intensity = 50;
+uint8_t led_intensity = 0;
 
 void
 led_decrease_intensity(void)
