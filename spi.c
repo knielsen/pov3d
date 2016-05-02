@@ -446,7 +446,7 @@ fill_tlc5955_control_latch(uint8_t *buf,
 {
   uint32_t pos = 0;
   uint32_t i, j;
-  float max_dist = led_distance_to_center_xy(6,3);
+  float max_dist = max_led_distance_to_center;
 
   memset(buf, 0, 193);
   for (j = 0; j < 2; ++j)

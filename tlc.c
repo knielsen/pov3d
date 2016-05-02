@@ -117,6 +117,8 @@ static const float led_center_distances_flash[LEDS_X*LEDS_Y] = {
   71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11f, 71.11
 };
 
+float max_led_distance_to_center;
+
 
 /*
   Table mapping inverse LED number to offset (Y+16*X) into scan plane.
@@ -243,15 +245,27 @@ void
 init_tlc(void)
 {
   uint32_t i, j;
+  float max_dist;
+
+  max_dist = 0.0f;
+  for (i = 0; i <LEDS_X*LEDS_Y; ++i)
+    if (max_dist < led_center_distances_flash[i])
+      max_dist = led_center_distances_flash[i];
+  max_led_distance_to_center = max_dist;
 
   /*
     Compute the gamma corrections.
 
     We multiply by 16 to use the full 0..65535 range, because this is needed
     with enhanced spectrum PWM.
+    (ToDo: Make the gammas use the full 0..65535 range; this should work fine
+    with any PWM period in enhanced spectrum PWM).
 
-    We byteswap as Cortex M4 is little endian, while the TLC5955's are big
-    endian.
+    We reverse the bits as TLCs expect most-significant bit first, while we
+    shift out least-significant-bit first. The Cortex M4 is little endian,
+    while the TLC5955's are big endian, and this way, things work out
+    correctly so that we can do 32-bit shifts of the first half of the buffer
+    (adjust_scanplane()) to insert the extra GS/control select bit.
   */
   for (i = 0; i < 256; ++i)
     gammas[i] = __RBIT((uint32_t)(gammas_flash[i]*16))>>16;

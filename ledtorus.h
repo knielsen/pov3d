@@ -147,6 +147,7 @@ extern float voltage_read_vrefint_adjust(void);
 
 /* tlc.c */
 extern uint8_t led_intensity;
+extern float max_led_distance_to_center;
 extern void make_scan_planes(uint32_t angle,
                              uint32_t *b1, uint32_t *b2, uint32_t *b3,
                              uint32_t *b4, uint32_t *b5, uint32_t *b6);
