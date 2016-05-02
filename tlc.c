@@ -96,7 +96,7 @@ static uint16_t led_angles[SPIS][32];
 
 
 /*
-  Mapping from (Y+X*8) to distance-to-center. 0.0f for a non-present LED.
+  Mapping from (Y+X*LEDS_TANG) to distance-to-center. 0.0f for a non-present LED.
   No SRAM version, as we do not need speed for lookups - it is only used
   to adjust DC value to correct brightness for longer sweeps of outer LEDs.
 */

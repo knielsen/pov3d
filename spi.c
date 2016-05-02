@@ -453,7 +453,7 @@ fill_tlc5955_control_latch(uint8_t *buf,
   {
     for (i = 0; i < 48; ++i)
     {
-      uint32_t led = j*16+i/3;
+      uint32_t led = (1-j)*16+(15-i/3);
       uint32_t dc_adj;
       float dist = led_distance_to_center_tlc(tlc_idx, led);
       float dc_fact = dist / max_dist;
