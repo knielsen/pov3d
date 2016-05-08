@@ -268,51 +268,41 @@ setup_tlc_spi_dma()
   DMA_DeInit(DMA1_Stream5);
 
   DMA_InitStructure.DMA_BufferSize = 1;
-  DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
-  DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_1QuarterFull;
+  DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
+  DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_HalfFull;
   DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
   DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
   DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
   DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
   DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
   DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
   DMA_InitStructure.DMA_Priority = DMA_Priority_High;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
+  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   /* Configure SPI1 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI1->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_3;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA2_Stream3, &DMA_InitStructure);
   /* Configure SPI2 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI2->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_0;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA1_Stream4, &DMA_InitStructure);
   /* Configure SPI3 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI3->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_0;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA1_Stream5, &DMA_InitStructure);
   /* Configure SPI4 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI4->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_4;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA2_Stream1, &DMA_InitStructure);
   /* Configure SPI5 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI5->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_2;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA2_Stream4, &DMA_InitStructure);
   /* Configure SPI6 TX DMA */
   DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI6->DR));
   DMA_InitStructure.DMA_Channel = DMA_Channel_1;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
   DMA_Init(DMA2_Stream5, &DMA_InitStructure);
 }
 
