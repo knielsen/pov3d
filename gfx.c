@@ -540,7 +540,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
         c->p1[i].gl_amp = 0.7f + drand(0.3f);
         gl_delta = 0;
       }
-      float glow = c->p1[i].gl_amp*sin((float)gl_delta/c->p1[i].gl_period*F_PI);
+      float glow = c->p1[i].gl_amp*sinf((float)gl_delta/c->p1[i].gl_period*F_PI);
       c->p1[i].col = mk_hsv3_f(0.8f, 0.0f, 0.44f + 0.31f*glow);
       ++i;
     }
@@ -1123,13 +1123,49 @@ static uint32_t
 an_test_img3(frame_t *f, uint32_t c __attribute__((unused)),
              union anim_data *data __attribute__((unused)))
 {
+  const float val = 1.0f;
+  const float sat0 = 1.0f;
+  const float hue_fact0 = 0.3f;
+  const float sat_fact0 = 0.3f;
   uint32_t x, y, a;
+  float hue0;
+  float hue, sat;
+  float hue_fact, sat_fact;
+  float nx, ny, ang, ang2;
+  struct colour3 rgb;
 
-  for (a = 0; a < LEDS_TANG; ++a)
+  hue0 = (float)(c % 256)*(1.0f/256.0f);
+  ang = (float)(c % 73)*(1.0f/73.0f*2.0f*F_PI);
+  nx = cosf(ang);
+  ny = sinf(ang);
+  ang2 = (float)(c % 311)*(1.0f/311.0f*2.0f*F_PI);
+  hue_fact = hue_fact0;
+  sat_fact = sat_fact0 + 0.2*cosf(ang2);
+
+  for (y = 0; y < LEDS_Y; ++y)
   {
-    for (y = 0; y < LEDS_Y; ++y)
-      for (x = 0; x < LEDS_X; ++x)
-        setpix(f, x, y, a, 255, 255, 255);
+    float fy = (float)y*(2.0f/(float)(LEDS_Y-1)) - 1.0f;
+    for (x = 0; x < LEDS_X; ++x)
+    {
+      float fx = (float)x*(2.0f/(float)(LEDS_X-1)) - 1.0f;
+      float dh = nx*fx + ny*fy;
+      float ds = ny*fx - nx*fy;
+      hue = hue0 + dh*hue_fact;
+      if (hue > 1.0f)
+        hue -= 1.0f;
+      else if (hue < 0.0f)
+        hue += 1.0f;
+      if (ds < 0)
+        ds = -ds;
+      sat = sat0 - ds*sat_fact;
+      if (sat < 0.0f)
+        sat += 1.0f;
+      rgb = hsv2rgb_f(hue, sat, val);
+      for (a = 0; a < LEDS_TANG; ++a)
+      {
+        setpix(f, x, y, a, rgb.r, rgb.g, rgb.b);
+      }
+    }
   }
 
   return 0;
@@ -1184,7 +1220,7 @@ an_planetest(frame_t *f, uint32_t frame,
   amp = 5.0f*sinf((2.0f*F_PI)*modff((float)frame*0.023f, &dummy));
   angle = (2.0f*F_PI)*modff((float)frame*0.0171f, &dummy);
   nx = amp*cosf(angle);
-  nz = amp*sin(angle);
+  nz = amp*sinf(angle);
   ny = 8.0f;
   norm = sqrtf(nx*nx + ny*ny + nz*nz);
   nx /= norm; ny /= norm; nz /= norm;
@@ -1220,6 +1256,10 @@ an_planetest(frame_t *f, uint32_t frame,
 
 
 const struct ledtorus_anim anim_table[] = {
+  { "TestImg3",
+    "Test-image with _all_ LEDs constant on at maximum",
+    750, NULL, NULL, an_test_img3 },
+
 #ifdef NOT_YET_CHECKED_FOR_LEDTORUS2
   { "Status",
     "Couple of scroll-texts displaying status",
@@ -1264,9 +1304,6 @@ const struct ledtorus_anim anim_table[] = {
     "Simple A-constant test image to test new LedTorus PCBs",
     250, NULL, NULL, an_test_img2 },
 */
-  { "TestImg3",
-    "Test-image with _all_ LEDs constant on at maximum",
-    250, NULL, NULL, an_test_img3 },
 };
 const uint32_t anim_table_length = sizeof(anim_table)/sizeof(anim_table[0]);
 
