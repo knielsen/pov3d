@@ -3,6 +3,9 @@
 
 #define TLC_NUM 3
 
+/* 769 bits each TLC5955, and pad to integral number of 32-bit words. */
+#define TLC_BUFSIZE ((2*769+31)/32*4)
+
 /*
   TLCs are on:
     SPI1:   U8/U9   PA5 (CLK)  PA6 (MISO)  PA7 (MOSI)  PA4 (LAT)
@@ -222,7 +225,7 @@ setup_tlc_spi_dma()
 
   SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
   SPI_InitStructure.SPI_Mode = SPI_Mode_Master;
-  SPI_InitStructure.SPI_DataSize = SPI_DataSize_8b;
+  SPI_InitStructure.SPI_DataSize = SPI_DataSize_16b;
   /* SCLK is idle low, both setup and sample on rising edge. */
   SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;
   SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;
@@ -268,11 +271,11 @@ setup_tlc_spi_dma()
   DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
   DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_1QuarterFull;
   DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
   DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
   DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
   DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-  DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+  DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
   DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
   DMA_InitStructure.DMA_Priority = DMA_Priority_High;
   /* Configure SPI1 TX DMA */
@@ -325,13 +328,19 @@ tlc_latch(GPIO_TypeDef * latch_gpio, uint16_t latch_pin)
 }
 
 
+/*
+  Synchronously transfer a buffer to TLCs using DMA.
+
+  The buffer length is specified in bytes, however it must denote an integral
+  number of half-words, as data is transfered 16 bits at a time.
+*/
 static void
-dma_to_tlc(uint8_t *outbuf, uint32_t len,
+dma_to_tlc(uint32_t *outbuf, uint32_t len,
            SPI_TypeDef *spi_dev, DMA_Stream_TypeDef *dma_stream,
            uint32_t dma_flag)
 {
   dma_stream->M0AR = (uint32_t)outbuf;
-  dma_stream->NDTR = len;
+  dma_stream->NDTR = len/2;
 
   DMA_Cmd(dma_stream, ENABLE);
   SPI_I2S_DMACmd(spi_dev, SPI_I2S_DMAReq_Tx, ENABLE);
@@ -354,9 +363,16 @@ dma_to_tlc(uint8_t *outbuf, uint32_t len,
     (void)SPI_I2S_ReceiveData(spi_dev);
 }
 
+
+/*
+  Transfer a buffer to TLCs using polling operation.
+
+  The buffer length is specified in bytes, however it must denote an integral
+  number of half-words, as data is transfered 16 bits at a time.
+*/
 __attribute__((unused))
 static void
-write_to_tlc(uint8_t *outbuf, uint32_t len,
+write_to_tlc(uint16_t *outbuf, uint32_t len,
              SPI_TypeDef *spi_dev, DMA_Stream_TypeDef *dma_stream,
              uint32_t dma_flag)
 {
@@ -364,6 +380,7 @@ write_to_tlc(uint8_t *outbuf, uint32_t len,
   while (spi_dev->SR & SPI_I2S_FLAG_RXNE)
     (void)SPI_I2S_ReceiveData(spi_dev);
 
+  len /= 2;
   while (len > 0)
   {
     while (!(spi_dev->SR & SPI_I2S_FLAG_TXE))
@@ -378,13 +395,20 @@ write_to_tlc(uint8_t *outbuf, uint32_t len,
 }
 
 
+/*
+  Read out TLC shift-registers using polling operation.
+
+  The buffer length is specified in bytes, however it must denote an integral
+  number of half-words, as data is transfered 16 bits at a time.
+*/
 static void
-read_from_tlc(SPI_TypeDef *spi_dev, uint8_t *buf, uint32_t len)
+read_from_tlc(SPI_TypeDef *spi_dev, uint16_t *buf, uint32_t len)
 {
   /* Clear out any pending not-read data. */
   while (spi_dev->SR & SPI_I2S_FLAG_RXNE)
     (void)SPI_I2S_ReceiveData(spi_dev);
 
+  len /= 2;
   while (len > 0)
   {
     while (!(spi_dev->SR & SPI_I2S_FLAG_TXE))
@@ -416,17 +440,25 @@ add_bits(uint8_t *buf, uint32_t len, uint32_t val, uint32_t size, uint32_t *pos)
 
 
 static void
-shift_buf_6_bits(uint8_t *buf, uint32_t len)
+shift_buf_30_bits(uint8_t *buf, uint32_t len)
 {
   uint32_t i;
-  uint8_t old;
 
-  old = 0;
-  for (i = 0; i < len; ++i)
+  i = len;
+  while (i > 4)
   {
-    uint8_t val = buf[i];
-    buf[i] = (old >> 2) | (val << 6);
-    old = val;
+    --i;
+    buf[i] = (buf[i-4] >> 2) | (buf[i-3] << 6);
+  }
+  if (i > 3)
+  {
+    --i;
+    buf[i] = buf[i-3] << 6;
+  }
+  while (i > 0)
+  {
+    --i;
+    buf[i] = 0;
   }
 }
 
@@ -448,7 +480,7 @@ fill_tlc5955_control_latch(uint8_t *buf,
   uint32_t i, j;
   float max_dist = max_led_distance_to_center;
 
-  memset(buf, 0, 193);
+  memset(buf, 0, TLC_BUFSIZE);
   for (j = 0; j < 2; ++j)
   {
     for (i = 0; i < 48; ++i)
@@ -461,12 +493,12 @@ fill_tlc5955_control_latch(uint8_t *buf,
       if (dc_fact < 0.262f)
         dc_fact = 0.262f;
       dc_adj = (uint32_t)(0.5f + 127.0f * (dc_fact - 0.262f)/(1.0f - 0.262f));
-      add_bits(buf, 193, dc_adj, 7, &pos);
+      add_bits(buf, TLC_BUFSIZE, dc_adj, 7, &pos);
     }
     for (i = 0; i < 3; ++i)
-      add_bits(buf, 193, mc_val, 3, &pos);
+      add_bits(buf, TLC_BUFSIZE, mc_val, 3, &pos);
     for (i = 0; i < 3; ++i)
-      add_bits(buf, 193, bc_val, 7, &pos);
+      add_bits(buf, TLC_BUFSIZE, bc_val, 7, &pos);
     /*
       Control bits:
         366 DSPRPT  0   Disable auto repeat
@@ -475,10 +507,10 @@ fill_tlc5955_control_latch(uint8_t *buf,
         369 ESPWM   1   Enable enhanced spectrum PWM
         370 LSDVLT  0   LSD voltage is VCC * 0.7
     */
-    add_bits(buf, 193, 0x0a, 5, &pos);
+    add_bits(buf, TLC_BUFSIZE, 0x0a, 5, &pos);
     /* Need 0x1 0x96 at start of buffer to latch control register. */
     pos = 760 + 769*j;
-    add_bits(buf, 193, 0x196, 9, &pos);
+    add_bits(buf, TLC_BUFSIZE, 0x196, 9, &pos);
   }
 }
 
@@ -489,7 +521,7 @@ fill_tlc5955_gs_latch(uint8_t *buf, uint32_t max_gs)
   uint32_t i, j, k;
   uint32_t idx;
 
-  memset(buf, 0, 193);
+  memset(buf, 0, TLC_BUFSIZE);
   idx = 0;
   for (k = 0; k < 2; ++k)
   {
@@ -498,11 +530,11 @@ fill_tlc5955_gs_latch(uint8_t *buf, uint32_t max_gs)
       for (j = 0; j < 3; ++j)
       {
         uint32_t gsval = ( (i & (1<<j)) ? max_gs/(2-(i/8)) : 0);
-        add_bits(buf, 193, gsval, 16, &idx);
+        add_bits(buf, TLC_BUFSIZE, gsval, 16, &idx);
       }
     }
     /* Add the "0" bit that selects the GS register. */
-    add_bits(buf, 193, 0, 1, &idx);
+    add_bits(buf, TLC_BUFSIZE, 0, 1, &idx);
   }
 }
 
@@ -512,7 +544,7 @@ setup_tlc5955(uint32_t tlc_idx, SPI_TypeDef *spi_dev,
               DMA_Stream_TypeDef *dma_stream, uint32_t dma_flag,
               GPIO_TypeDef * latch_gpio, uint16_t latch_pin)
 {
-  uint8_t databuf[193], inbuf[193];
+  uint32_t databuf[TLC_BUFSIZE/4], inbuf[TLC_BUFSIZE/4];
 
   /*
     MC=4 is 19.1 mA max.
@@ -520,19 +552,26 @@ setup_tlc5955(uint32_t tlc_idx, SPI_TypeDef *spi_dev,
     BC=127 is 100% -> 19.1 mA.
     Should be safe even for USB usage, or can use MC=2 BC=0 for 1.12 mA.
   */
-  fill_tlc5955_control_latch(databuf, tlc_idx, led_intensity, 4);
+
+  /*
+    We need to be a bit careful about strict aliasing with our buffers.
+    The buffers are uint32_t[] to be correctly aligned for 32-bit DMA. While
+    our polling SPI operations work on then as uint16_t*.
+    But since we fill and compare them as uint8_t, it should be ok.
+  */
+  fill_tlc5955_control_latch((uint8_t *)databuf, tlc_idx, led_intensity, 4);
   serial_puts("Sending control register data to TLC5955:\r\n");
-  serial_dump_buf(databuf, sizeof(databuf));
+  serial_dump_buf((uint8_t *)databuf, sizeof(databuf));
   dma_to_tlc(databuf, sizeof(databuf), spi_dev, dma_stream, dma_flag);
   tlc_latch(latch_gpio, latch_pin);
 
-  read_from_tlc(spi_dev, inbuf, sizeof(inbuf));
+  read_from_tlc(spi_dev, (uint16_t *)inbuf, sizeof(inbuf));
   tlc_latch(latch_gpio, latch_pin);
   /* Since we shift out 7 bits too many, we need to adjust the result read. */
-  shift_buf_6_bits(inbuf, 193);
+  shift_buf_30_bits((uint8_t *)inbuf, TLC_BUFSIZE);
   if (0 != memcmp(databuf, inbuf, sizeof(databuf)))
   {
-    serial_dump_buf(inbuf, sizeof(inbuf));
+    serial_dump_buf((uint8_t *)inbuf, sizeof(inbuf));
     serial_puts(" ouch, read control data does not match!\r\n");
     for (;;)
       ;
@@ -542,16 +581,16 @@ setup_tlc5955(uint32_t tlc_idx, SPI_TypeDef *spi_dev,
   dma_to_tlc(databuf, sizeof(databuf), spi_dev, dma_stream, dma_flag);
   tlc_latch(latch_gpio, latch_pin);
   serial_puts("Now load some GS data ...\r\n");
-  fill_tlc5955_gs_latch(databuf, 4095);
-  serial_dump_buf(databuf, sizeof(databuf));
+  fill_tlc5955_gs_latch((uint8_t *)databuf, 4095);
+  serial_dump_buf((uint8_t *)databuf, sizeof(databuf));
   dma_to_tlc(databuf, sizeof(databuf), spi_dev, dma_stream, dma_flag);
   tlc_latch(latch_gpio, latch_pin);
 #if EXTRA_DEBUG
   /* Read out and dump the status information, for debugging. */
-  read_from_tlc(spi_dev, inbuf, sizeof(inbuf));
+  read_from_tlc(spi_dev, (uint16_t *)inbuf, sizeof(inbuf));
   serial_puts("SID data from TLCs:\r\n");
-  shift_buf_6_bits(inbuf, sizeof(inbuf));
-  serial_dump_buf(inbuf, sizeof(inbuf));
+  shift_buf_30_bits((uint8_t *)inbuf, sizeof(inbuf));
+  serial_dump_buf((uint8_t *)inbuf, sizeof(inbuf));
 #endif
 }
 
@@ -598,7 +637,7 @@ void
 start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3,
                      uint32_t *p4, uint32_t *p5, uint32_t *p6)
 {
-  static const uint32_t len = 2*48*2+4;/* 2 TLCs each 48 outputs + extra word */
+  static const uint32_t len = 2*48+2;/* 2 TLCs each 48 outputs + extra word */
 
   DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
   DMA_ClearFlag(DMA1_Stream4, DMA_FLAG_TCIF4);
