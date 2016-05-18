@@ -1,7 +1,10 @@
 #include "ledtorus.h"
 
-void delay(__IO uint32_t nCount)
+void delay(uint32_t nCount)
 {
-    while(nCount--)
-        __asm("nop"); // do nothing
+  do
+  {
+    __asm __volatile("");  // Do nothing but prevent optimising away the loop
+    --nCount;
+  } while (nCount > 0);
 }

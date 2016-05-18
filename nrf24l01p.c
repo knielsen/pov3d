@@ -289,7 +289,7 @@ ce_high(void)
 static inline uint8_t
 bitswap_byte(uint8_t in)
 {
-  return (uint8_t)(__RBIT((uint32_t)in) >> 24);
+  return (uint8_t)(asm_rbit((uint32_t)in) >> 24);
 }
 
 

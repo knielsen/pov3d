@@ -205,7 +205,7 @@ init_tlc(void)
     endian.
   */
   for (i = 0; i < 256; ++i)
-    gammas[i] = __REV16(gammas_flash[i]*16);
+    gammas[i] = asm_rev16(gammas_flash[i]*16);
 
   for (j = 0; j < 3; ++j)
   {

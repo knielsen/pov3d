@@ -6,12 +6,7 @@
 static void
 busy_delay(uint32_t us)
 {
-  uint32_t i;
-  i = us*(MCU_HZ/(3*1000000));
-  do {
-    __asm __volatile ("");
-    --i;
-  } while (i != 0);
+  delay(us*(MCU_HZ/(3*1000000)));
 }
 
 
@@ -32,9 +27,9 @@ main(void)
 
   serial_puts("\r\n\r\nPOV3D Copyright 2015 Kristian Nielsen\r\n");
   serial_puts("Setting up TLCs...\r\n");
-#ifdef ToDo_NOT_YET
   setup_spi();
   init_tlc();
+#ifdef ToDo_NOT_YET
   serial_puts("Configuring ADC...\r\n");
   config_adc();
   serial_puts("Starting timers...\r\n");
@@ -45,8 +40,8 @@ main(void)
   setup_sd_sdio();
   serial_puts("Setting up Hall sensor...\r\n");
   setup_hall();
-  serial_puts("Setup done, starting loop...\r\n");
 #endif
+  serial_puts("Setup done, starting loop...\r\n");
 
   for (;;)
   {

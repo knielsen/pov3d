@@ -1,5 +1,8 @@
 #include "ledtorus.h"
 
+#include <libopencm3/stm32/spi.h>
+#include <libopencm3/stm32/dma.h>
+
 
 #define TLC_NUM 3
 
@@ -17,110 +20,106 @@
 static void
 setup_tlc_spi_dma()
 {
-  GPIO_InitTypeDef GPIO_InitStructure;
-  SPI_InitTypeDef SPI_InitStructure;
-  DMA_InitTypeDef DMA_InitStructure;
+  rcc_periph_clock_enable(RCC_GPIOA);
+  rcc_periph_clock_enable(RCC_GPIOB);
+  rcc_periph_clock_enable(RCC_GPIOC);
+  rcc_periph_clock_enable(RCC_SPI1);
+  rcc_periph_clock_enable(RCC_SPI2);
+  rcc_periph_clock_enable(RCC_SPI3);
 
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI2, ENABLE);
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI3, ENABLE);
-
-  SPI_Cmd(SPI1, DISABLE);
-  SPI_Cmd(SPI2, DISABLE);
-  SPI_Cmd(SPI3, DISABLE);
+  spi_disable(SPI1);
+  spi_disable(SPI2);
+  spi_disable(SPI3);
 
   /* GPIOA Configuration: SPI1 CLK on PA5, MISO on PA6, MOSI on PA7. */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5|GPIO_Pin_7;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
-
+  gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO6);
+  gpio_set_output_options(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO6);
   /* First, setup direct GPIO with lines low. */
-  GPIO_Init(GPIOA, &GPIO_InitStructure);
-  GPIO_ResetBits(GPIOA, GPIO_Pin_5|GPIO_Pin_7);
+  gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO5|GPIO7);
+  gpio_set_output_options(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO5|GPIO7);
+  gpio_clear(GPIOA, GPIO5|GPIO7);
   /* Then, setup the pins as the real alternate-function SPIs. */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5|GPIO_Pin_6|GPIO_Pin_7;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);
+  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, GPIO5|GPIO6|GPIO7);
 
   /*
     GPIOB Configuration: SPI2 CLK on PB13, MISO on PB14, MOSI on PB15.
     SPI3 CLK on PB3, MISO on PB4, MOSI on PB5.
   */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4|GPIO_Pin_14;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(GPIOB, &GPIO_InitStructure);
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3|GPIO_Pin_5|GPIO_Pin_13|GPIO_Pin_15;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
-
+  gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO4|GPIO14);
+  gpio_set_output_options(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO4|GPIO14);
   /* First, setup direct GPIO with lines low. */
-  GPIO_Init(GPIOB, &GPIO_InitStructure);
-  GPIO_ResetBits(GPIOB, GPIO_Pin_3|GPIO_Pin_5|GPIO_Pin_13|GPIO_Pin_15);
+  gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN,
+                  GPIO3|GPIO5|GPIO13|GPIO15);
+  gpio_set_output_options(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ,
+                          GPIO3|GPIO5|GPIO13|GPIO15);
+  gpio_clear(GPIOB, GPIO3|GPIO5|GPIO13|GPIO15);
   /* Then, setup the pins as the real alternate-function SPIs. */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3|GPIO_Pin_4|GPIO_Pin_5|
-                                GPIO_Pin_13|GPIO_Pin_14|GPIO_Pin_15;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_Init(GPIOB, &GPIO_InitStructure);
+  gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN,
+                  GPIO3|GPIO4|GPIO5|GPIO13|GPIO14|GPIO15);
 
   /* GPIOA Configuration: LAT1 on PA4. */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);
+  gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO4);
+  gpio_set_output_options(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO4);
   /* Latch is active high; initialise it low. */
-  GPIO_ResetBits(GPIOA, GPIO_Pin_4);
+  gpio_clear(GPIOA, GPIO4);
 
   /* GPIOC Configuration: LAT2 on PC6, LAT3 on PC5. */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5|GPIO_Pin_6;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_Init(GPIOC, &GPIO_InitStructure);
+  gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO5|GPIO6);
+  gpio_set_output_options(GPIOC, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO5|GPIO6);
   /* Latch is active high; initialise it low. */
-  GPIO_ResetBits(GPIOC, GPIO_Pin_5|GPIO_Pin_6);
+  gpio_clear(GPIOA, GPIO5|GPIO6);
 
-  GPIO_PinAFConfig(GPIOA, GPIO_PinSource5, GPIO_AF_SPI1);
-  GPIO_PinAFConfig(GPIOA, GPIO_PinSource6, GPIO_AF_SPI1);
-  GPIO_PinAFConfig(GPIOA, GPIO_PinSource7, GPIO_AF_SPI1);
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource13, GPIO_AF_SPI2);
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource14, GPIO_AF_SPI2);
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource15, GPIO_AF_SPI2);
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource3, GPIO_AF_SPI3);
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource4, GPIO_AF_SPI3);
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource5, GPIO_AF_SPI3);
+  /* SPI1 is on alternate function 5. */
+  gpio_set_af(GPIOA, GPIO_AF5, GPIO5);
+  gpio_set_af(GPIOA, GPIO_AF5, GPIO6);
+  gpio_set_af(GPIOA, GPIO_AF5, GPIO7);
+  /* SPI2 is on alternate function 5. */
+  gpio_set_af(GPIOB, GPIO_AF5, GPIO13);
+  gpio_set_af(GPIOB, GPIO_AF5, GPIO14);
+  gpio_set_af(GPIOB, GPIO_AF5, GPIO15);
+  /* SPI3 is on alternate function 6. */
+  gpio_set_af(GPIOB, GPIO_AF6, GPIO3);
+  gpio_set_af(GPIOB, GPIO_AF6, GPIO4);
+  gpio_set_af(GPIOB, GPIO_AF6, GPIO5);
 
-  SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
-  SPI_InitStructure.SPI_Mode = SPI_Mode_Master;
-  SPI_InitStructure.SPI_DataSize = SPI_DataSize_8b;
-  /* SCLK is idle low, both setup and sample on rising edge. */
-  SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;
-  SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;
-  SPI_InitStructure.SPI_NSS = SPI_NSS_Soft | SPI_NSSInternalSoft_Set;
-  SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
-  SPI_InitStructure.SPI_CRCPolynomial = 7;
-  /* SPI1 is on the 84 MHz APB2, so prescalar 4 is 21 MHz. */
-  SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;
-  SPI_Init(SPI1, &SPI_InitStructure);
-  SPI_Cmd(SPI1, ENABLE);
-  /* SPI2/3 is on the 42 MHz APB1, so prescalar 2 is 21 MHz. */
-  SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_2;
-  SPI_Init(SPI2, &SPI_InitStructure);
-  SPI_Init(SPI3, &SPI_InitStructure);
-  SPI_Cmd(SPI2, ENABLE);
-  SPI_Cmd(SPI3, ENABLE);
+  spi_init_master(SPI1,
+                  /* SPI1 is on the 84 MHz APB2, so prescalar 4 is 21 MHz. */
+                  SPI_CR1_BAUDRATE_FPCLK_DIV_4,
+                  /* SCLK is idle low, both setup and sample on rising edge. */
+                  SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE,
+                  SPI_CR1_CPHA_CLK_TRANSITION_1,
+                  SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
+  spi_set_unidirectional_mode(SPI1);
+  spi_set_full_duplex_mode(SPI1);
+  spi_enable_software_slave_management(SPI1);
+  spi_set_nss_high(SPI1);
+  spi_enable(SPI1);
+
+  spi_init_master(SPI2,
+                  /* SPI2 is on the 42 MHz APB1, so prescalar 2 is 21 MHz. */
+                  SPI_CR1_BAUDRATE_FPCLK_DIV_2,
+                  /* SCLK is idle low, both setup and sample on rising edge. */
+                  SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE,
+                  SPI_CR1_CPHA_CLK_TRANSITION_1,
+                  SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
+  spi_set_unidirectional_mode(SPI2);
+  spi_set_full_duplex_mode(SPI2);
+  spi_enable_software_slave_management(SPI2);
+  spi_set_nss_high(SPI2);
+  spi_enable(SPI2);
+
+  spi_init_master(SPI3,
+                  /* SPI3 is on the 42 MHz APB1, so prescalar 2 is 21 MHz. */
+                  SPI_CR1_BAUDRATE_FPCLK_DIV_2,
+                  /* SCLK is idle low, both setup and sample on rising edge. */
+                  SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE,
+                  SPI_CR1_CPHA_CLK_TRANSITION_1,
+                  SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
+  spi_set_unidirectional_mode(SPI3);
+  spi_set_full_duplex_mode(SPI3);
+  spi_enable_software_slave_management(SPI3);
+  spi_set_nss_high(SPI3);
+  spi_enable(SPI3);
 
   /*
     Setup DMA.
@@ -128,59 +127,97 @@ setup_tlc_spi_dma()
     SPI2 uses DMA1 stream 3 ch 0 (Rx) and stream 4 ch 0 (Tx).
     SPI3 uses DMA1 stream 0 ch 0 (Rx) and stream 5 ch 0 (Tx).
   */
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA2, ENABLE);
-  DMA_DeInit(DMA2_Stream0);
-  DMA_DeInit(DMA2_Stream3);
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA1, ENABLE);
-  DMA_DeInit(DMA1_Stream3);
-  DMA_DeInit(DMA1_Stream4);
-  DMA_DeInit(DMA1_Stream0);
-  DMA_DeInit(DMA1_Stream5);
+  rcc_periph_clock_enable(RCC_DMA2);
+  dma_stream_reset(DMA2, DMA_STREAM0);
+  dma_stream_reset(DMA2, DMA_STREAM3);
+  rcc_periph_clock_enable(RCC_DMA1);
+  dma_stream_reset(DMA1, DMA_STREAM3);
+  dma_stream_reset(DMA1, DMA_STREAM4);
+  dma_stream_reset(DMA1, DMA_STREAM0);
+  dma_stream_reset(DMA1, DMA_STREAM5);
 
-  DMA_InitStructure.DMA_BufferSize = 1;
-  DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
-  DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_1QuarterFull;
-  DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-  DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-  DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-  DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-  DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-  DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-  DMA_InitStructure.DMA_Priority = DMA_Priority_High;
   /* Configure SPI1 TX DMA */
-  DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI1->DR));
-  DMA_InitStructure.DMA_Channel = DMA_Channel_3;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA2_Stream3, &DMA_InitStructure);
+  dma_enable_direct_mode(DMA2, DMA_STREAM3);
+  dma_set_fifo_threshold(DMA2, DMA_STREAM3, DMA_SxFCR_FTH_1_4_FULL);
+  dma_set_memory_burst(DMA2, DMA_STREAM3, DMA_SxCR_MBURST_SINGLE);
+  dma_set_peripheral_burst(DMA2, DMA_STREAM3, DMA_SxCR_PBURST_SINGLE);
+  dma_set_memory_size(DMA2, DMA_STREAM3, DMA_SxCR_MSIZE_8BIT);
+  dma_set_peripheral_size(DMA2, DMA_STREAM3, DMA_SxCR_PSIZE_8BIT);
+  dma_enable_memory_increment_mode(DMA2, DMA_STREAM3);
+  dma_disable_peripheral_increment_mode(DMA2, DMA_STREAM3);
+  dma_set_priority(DMA2, DMA_STREAM3, DMA_SxCR_PL_HIGH);
+  dma_set_peripheral_address(DMA2, DMA_STREAM3, (uint32_t) (&(SPI1_DR)));
+  dma_channel_select(DMA2, DMA_STREAM3, DMA_SxCR_CHSEL_3);
+  dma_set_transfer_mode(DMA2, DMA_STREAM3, DMA_SxCR_DIR_MEM_TO_PERIPHERAL);
   /* Configure SPI1 RX DMA */
-  DMA_InitStructure.DMA_Channel = DMA_Channel_3;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA2_Stream0, &DMA_InitStructure);
+  dma_enable_direct_mode(DMA2, DMA_STREAM0);
+  dma_set_fifo_threshold(DMA2, DMA_STREAM0, DMA_SxFCR_FTH_1_4_FULL);
+  dma_set_memory_burst(DMA2, DMA_STREAM0, DMA_SxCR_MBURST_SINGLE);
+  dma_set_peripheral_burst(DMA2, DMA_STREAM0, DMA_SxCR_PBURST_SINGLE);
+  dma_set_memory_size(DMA2, DMA_STREAM0, DMA_SxCR_MSIZE_8BIT);
+  dma_set_peripheral_size(DMA2, DMA_STREAM0, DMA_SxCR_PSIZE_8BIT);
+  dma_enable_memory_increment_mode(DMA2, DMA_STREAM0);
+  dma_disable_peripheral_increment_mode(DMA2, DMA_STREAM0);
+  dma_set_priority(DMA2, DMA_STREAM0, DMA_SxCR_PL_HIGH);
+  dma_set_peripheral_address(DMA2, DMA_STREAM0, (uint32_t) (&(SPI1_DR)));
+  dma_channel_select(DMA2, DMA_STREAM0, DMA_SxCR_CHSEL_3);
+  dma_set_transfer_mode(DMA2, DMA_STREAM0, DMA_SxCR_DIR_PERIPHERAL_TO_MEM);
+
   /* Configure SPI2 TX DMA */
-  DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI2->DR));
-  DMA_InitStructure.DMA_Channel = DMA_Channel_0;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA1_Stream4, &DMA_InitStructure);
+  dma_enable_direct_mode(DMA1, DMA_STREAM4);
+  dma_set_fifo_threshold(DMA1, DMA_STREAM4, DMA_SxFCR_FTH_1_4_FULL);
+  dma_set_memory_burst(DMA1, DMA_STREAM4, DMA_SxCR_MBURST_SINGLE);
+  dma_set_peripheral_burst(DMA1, DMA_STREAM4, DMA_SxCR_PBURST_SINGLE);
+  dma_set_memory_size(DMA1, DMA_STREAM4, DMA_SxCR_MSIZE_8BIT);
+  dma_set_peripheral_size(DMA1, DMA_STREAM4, DMA_SxCR_PSIZE_8BIT);
+  dma_enable_memory_increment_mode(DMA1, DMA_STREAM4);
+  dma_disable_peripheral_increment_mode(DMA1, DMA_STREAM4);
+  dma_set_priority(DMA1, DMA_STREAM4, DMA_SxCR_PL_HIGH);
+  dma_set_peripheral_address(DMA1, DMA_STREAM4, (uint32_t) (&(SPI2_DR)));
+  dma_channel_select(DMA1, DMA_STREAM4, DMA_SxCR_CHSEL_0);
+  dma_set_transfer_mode(DMA1, DMA_STREAM4, DMA_SxCR_DIR_MEM_TO_PERIPHERAL);
+
   /* Configure SPI2 RX DMA */
-  DMA_InitStructure.DMA_Channel = DMA_Channel_0;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA1_Stream3, &DMA_InitStructure);
+  dma_enable_direct_mode(DMA1, DMA_STREAM3);
+  dma_set_fifo_threshold(DMA1, DMA_STREAM3, DMA_SxFCR_FTH_1_4_FULL);
+  dma_set_memory_burst(DMA1, DMA_STREAM3, DMA_SxCR_MBURST_SINGLE);
+  dma_set_peripheral_burst(DMA1, DMA_STREAM3, DMA_SxCR_PBURST_SINGLE);
+  dma_set_memory_size(DMA1, DMA_STREAM3, DMA_SxCR_MSIZE_8BIT);
+  dma_set_peripheral_size(DMA1, DMA_STREAM3, DMA_SxCR_PSIZE_8BIT);
+  dma_enable_memory_increment_mode(DMA1, DMA_STREAM3);
+  dma_disable_peripheral_increment_mode(DMA1, DMA_STREAM3);
+  dma_set_priority(DMA1, DMA_STREAM3, DMA_SxCR_PL_HIGH);
+  dma_set_peripheral_address(DMA1, DMA_STREAM3, (uint32_t) (&(SPI2_DR)));
+  dma_channel_select(DMA1, DMA_STREAM3, DMA_SxCR_CHSEL_0);
+  dma_set_transfer_mode(DMA1, DMA_STREAM3, DMA_SxCR_DIR_PERIPHERAL_TO_MEM);
+
   /* Configure SPI3 TX DMA */
-  DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(SPI3->DR));
-  DMA_InitStructure.DMA_Channel = DMA_Channel_0;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA1_Stream5, &DMA_InitStructure);
+  dma_enable_direct_mode(DMA1, DMA_STREAM5);
+  dma_set_fifo_threshold(DMA1, DMA_STREAM5, DMA_SxFCR_FTH_1_4_FULL);
+  dma_set_memory_burst(DMA1, DMA_STREAM5, DMA_SxCR_MBURST_SINGLE);
+  dma_set_peripheral_burst(DMA1, DMA_STREAM5, DMA_SxCR_PBURST_SINGLE);
+  dma_set_memory_size(DMA1, DMA_STREAM5, DMA_SxCR_MSIZE_8BIT);
+  dma_set_peripheral_size(DMA1, DMA_STREAM5, DMA_SxCR_PSIZE_8BIT);
+  dma_enable_memory_increment_mode(DMA1, DMA_STREAM5);
+  dma_disable_peripheral_increment_mode(DMA1, DMA_STREAM5);
+  dma_set_priority(DMA1, DMA_STREAM5, DMA_SxCR_PL_HIGH);
+  dma_set_peripheral_address(DMA1, DMA_STREAM5, (uint32_t) (&(SPI3_DR)));
+  dma_channel_select(DMA1, DMA_STREAM5, DMA_SxCR_CHSEL_0);
+  dma_set_transfer_mode(DMA1, DMA_STREAM5, DMA_SxCR_DIR_MEM_TO_PERIPHERAL);
+
   /* Configure SPI3 RX DMA */
-  DMA_InitStructure.DMA_Channel = DMA_Channel_0;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
-  DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA1_Stream0, &DMA_InitStructure);
+  dma_enable_direct_mode(DMA1, DMA_STREAM0);
+  dma_set_fifo_threshold(DMA1, DMA_STREAM0, DMA_SxFCR_FTH_1_4_FULL);
+  dma_set_memory_burst(DMA1, DMA_STREAM0, DMA_SxCR_MBURST_SINGLE);
+  dma_set_peripheral_burst(DMA1, DMA_STREAM0, DMA_SxCR_PBURST_SINGLE);
+  dma_set_memory_size(DMA1, DMA_STREAM0, DMA_SxCR_MSIZE_8BIT);
+  dma_set_peripheral_size(DMA1, DMA_STREAM0, DMA_SxCR_PSIZE_8BIT);
+  dma_enable_memory_increment_mode(DMA1, DMA_STREAM0);
+  dma_disable_peripheral_increment_mode(DMA1, DMA_STREAM0);
+  dma_set_priority(DMA1, DMA_STREAM0, DMA_SxCR_PL_HIGH);
+  dma_set_peripheral_address(DMA1, DMA_STREAM0, (uint32_t) (&(SPI3_DR)));
+  dma_channel_select(DMA1, DMA_STREAM0, DMA_SxCR_CHSEL_0);
+  dma_set_transfer_mode(DMA1, DMA_STREAM0, DMA_SxCR_DIR_PERIPHERAL_TO_MEM);
 }
 
 
@@ -188,9 +225,9 @@ static void
 tlc1_latch(void)
 {
   delay(1);
-  GPIO_SetBits(GPIOA, GPIO_Pin_4);
+  gpio_set(GPIOA, GPIO4);
   delay(1);
-  GPIO_ResetBits(GPIOA, GPIO_Pin_4);
+  gpio_clear(GPIOA, GPIO4);
   delay(1);
 }
 
@@ -199,9 +236,9 @@ static void
 tlc2_latch(void)
 {
   delay(1);
-  GPIO_SetBits(GPIOC, GPIO_Pin_6);
+  gpio_set(GPIOC, GPIO6);
   delay(1);
-  GPIO_ResetBits(GPIOC, GPIO_Pin_6);
+  gpio_clear(GPIOC, GPIO6);
   delay(1);
 }
 
@@ -210,9 +247,9 @@ static void
 tlc3_latch(void)
 {
   delay(1);
-  GPIO_SetBits(GPIOC, GPIO_Pin_5);
+  gpio_set(GPIOC, GPIO5);
   delay(1);
-  GPIO_ResetBits(GPIOC, GPIO_Pin_5);
+  gpio_clear(GPIOC, GPIO5);
   delay(1);
 }
 
@@ -220,29 +257,29 @@ tlc3_latch(void)
 static void
 dma_to_tlc1(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
 {
-  DMA2_Stream0->M0AR = (uint32_t)inbuf;
-  DMA2_Stream0->NDTR = len;
-  DMA2_Stream3->M0AR = (uint32_t)outbuf;
-  DMA2_Stream3->NDTR = len;
+  DMA2_S0M0AR = inbuf;
+  DMA2_S0NDTR = len;
+  DMA2_S3M0AR = outbuf;
+  DMA2_S3NDTR = len;
 
-  DMA_Cmd(DMA2_Stream0, ENABLE);
-  DMA_Cmd(DMA2_Stream3, ENABLE);
-  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Rx, ENABLE);
-  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, ENABLE);
-  while (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET)
+  dma_enable_stream(DMA2, DMA_STREAM0);
+  dma_enable_stream(DMA2, DMA_STREAM3);
+  spi_enable_rx_dma(SPI1);
+  spi_enable_tx_dma(SPI1);
+  while (!dma_get_interrupt_flag(DMA2, DMA_STREAM3, DMA_TCIF))
     ;
-  while (DMA_GetFlagStatus(DMA2_Stream0, DMA_FLAG_TCIF0)==RESET)
+  while (!dma_get_interrupt_flag(DMA2, DMA_STREAM0, DMA_TCIF))
     ;
-  DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
-  DMA_ClearFlag(DMA2_Stream0, DMA_FLAG_TCIF0);
-  DMA_Cmd(DMA2_Stream3, DISABLE);
-  DMA_Cmd(DMA2_Stream0, DISABLE);
-  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Rx, DISABLE);
-  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, DISABLE);
+  dma_clear_interrupt_flags(DMA2, DMA_STREAM3, DMA_TCIF);
+  dma_clear_interrupt_flags(DMA2, DMA_STREAM0, DMA_TCIF);
+  dma_disable_stream(DMA2, DMA_STREAM3);
+  dma_disable_stream(DMA2, DMA_STREAM0);
+  spi_disable_rx_dma(SPI1);
+  spi_disable_tx_dma(SPI1);
 
-  while (!(SPI1->SR & SPI_I2S_FLAG_TXE))
+  while (!(SPI1_SR & SPI_SR_TXE))
     ;
-  while (SPI1->SR & SPI_I2S_FLAG_BSY)
+  while (SPI1_SR & SPI_SR_BSY)
     ;
 }
 
@@ -250,29 +287,29 @@ dma_to_tlc1(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
 static void
 dma_to_tlc2(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
 {
-  DMA1_Stream3->M0AR = (uint32_t)inbuf;
-  DMA1_Stream3->NDTR = len;
-  DMA1_Stream4->M0AR = (uint32_t)outbuf;
-  DMA1_Stream4->NDTR = len;
+  DMA1_S3M0AR = inbuf;
+  DMA1_S3NDTR = len;
+  DMA1_S4M0AR = outbuf;
+  DMA1_S4NDTR = len;
 
-  DMA_Cmd(DMA1_Stream3, ENABLE);
-  DMA_Cmd(DMA1_Stream4, ENABLE);
-  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Rx, ENABLE);
-  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Tx, ENABLE);
-  while (DMA_GetFlagStatus(DMA1_Stream4, DMA_FLAG_TCIF4) == RESET)
+  dma_enable_stream(DMA1, DMA_STREAM3);
+  dma_enable_stream(DMA1, DMA_STREAM4);
+  spi_enable_rx_dma(SPI2);
+  spi_enable_tx_dma(SPI2);
+  while (!dma_get_interrupt_flag(DMA1, DMA_STREAM4, DMA_TCIF))
     ;
-  while (DMA_GetFlagStatus(DMA1_Stream3, DMA_FLAG_TCIF3)==RESET)
+  while (!dma_get_interrupt_flag(DMA1, DMA_STREAM3, DMA_TCIF))
     ;
-  DMA_ClearFlag(DMA1_Stream4, DMA_FLAG_TCIF4);
-  DMA_ClearFlag(DMA1_Stream3, DMA_FLAG_TCIF3);
-  DMA_Cmd(DMA1_Stream4, DISABLE);
-  DMA_Cmd(DMA1_Stream3, DISABLE);
-  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Rx, DISABLE);
-  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Tx, DISABLE);
+  dma_clear_interrupt_flags(DMA1, DMA_STREAM4, DMA_TCIF);
+  dma_clear_interrupt_flags(DMA1, DMA_STREAM3, DMA_TCIF);
+  dma_disable_stream(DMA1, DMA_STREAM4);
+  dma_disable_stream(DMA1, DMA_STREAM3);
+  spi_disable_rx_dma(SPI2);
+  spi_disable_tx_dma(SPI2);
 
-  while (!(SPI2->SR & SPI_I2S_FLAG_TXE))
+  while (!(SPI2_SR & SPI_SR_TXE))
     ;
-  while (SPI2->SR & SPI_I2S_FLAG_BSY)
+  while (SPI2_SR & SPI_SR_BSY)
     ;
 }
 
@@ -280,29 +317,29 @@ dma_to_tlc2(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
 static void
 dma_to_tlc3(uint8_t *outbuf, uint8_t *inbuf, uint32_t len)
 {
-  DMA1_Stream0->M0AR = (uint32_t)inbuf;
-  DMA1_Stream0->NDTR = len;
-  DMA1_Stream5->M0AR = (uint32_t)outbuf;
-  DMA1_Stream5->NDTR = len;
+  DMA1_S0M0AR = inbuf;
+  DMA1_S0NDTR = len;
+  DMA1_S5M0AR = outbuf;
+  DMA1_S5NDTR = len;
 
-  DMA_Cmd(DMA1_Stream0, ENABLE);
-  DMA_Cmd(DMA1_Stream5, ENABLE);
-  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Rx, ENABLE);
-  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Tx, ENABLE);
-  while (DMA_GetFlagStatus(DMA1_Stream5, DMA_FLAG_TCIF5) == RESET)
+  dma_enable_stream(DMA1, DMA_STREAM0);
+  dma_enable_stream(DMA1, DMA_STREAM5);
+  spi_enable_rx_dma(SPI3);
+  spi_enable_tx_dma(SPI3);
+  while (!dma_get_interrupt_flag(DMA1, DMA_STREAM5, DMA_TCIF))
     ;
-  while (DMA_GetFlagStatus(DMA1_Stream0, DMA_FLAG_TCIF0)==RESET)
+  while (!dma_get_interrupt_flag(DMA1, DMA_STREAM0, DMA_TCIF))
     ;
-  DMA_ClearFlag(DMA1_Stream5, DMA_FLAG_TCIF5);
-  DMA_ClearFlag(DMA1_Stream0, DMA_FLAG_TCIF0);
-  DMA_Cmd(DMA1_Stream5, DISABLE);
-  DMA_Cmd(DMA1_Stream0, DISABLE);
-  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Rx, DISABLE);
-  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Tx, DISABLE);
+  dma_clear_interrupt_flags(DMA1, DMA_STREAM5, DMA_TCIF);
+  dma_clear_interrupt_flags(DMA1, DMA_STREAM0, DMA_TCIF);
+  dma_disable_stream(DMA1, DMA_STREAM5);
+  dma_disable_stream(DMA1, DMA_STREAM0);
+  spi_disable_rx_dma(SPI3);
+  spi_disable_tx_dma(SPI3);
 
-  while (!(SPI3->SR & SPI_I2S_FLAG_TXE))
+  while (!(SPI3_SR & SPI_SR_TXE))
     ;
-  while (SPI3->SR & SPI_I2S_FLAG_BSY)
+  while (SPI3_SR & SPI_SR_BSY)
     ;
 }
 
@@ -488,23 +525,23 @@ start_dma_scanplanes(uint32_t *p1, uint32_t *p2, uint32_t *p3)
 {
   static const uint32_t len = 2+48*2;           /* 48 outputs + extra word */
 
-  DMA_ClearFlag(DMA2_Stream3, DMA_FLAG_TCIF3);
-  DMA_ClearFlag(DMA1_Stream4, DMA_FLAG_TCIF4);
-  DMA_ClearFlag(DMA1_Stream5, DMA_FLAG_TCIF5);
+  dma_clear_interrupt_flags(DMA2, DMA_STREAM3, DMA_TCIF);
+  dma_clear_interrupt_flags(DMA1, DMA_STREAM4, DMA_TCIF);
+  dma_clear_interrupt_flags(DMA1, DMA_STREAM5, DMA_TCIF);
 
-  DMA2_Stream3->M0AR = (uint32_t)p1;
-  DMA2_Stream3->NDTR = len;
-  DMA1_Stream4->M0AR = (uint32_t)p2;
-  DMA1_Stream4->NDTR = len;
-  DMA1_Stream5->M0AR = (uint32_t)p3;
-  DMA1_Stream5->NDTR = len;
+  DMA2_S3M0AR = p1;
+  DMA2_S3NDTR = len;
+  DMA1_S4M0AR = p2;
+  DMA1_S4NDTR = len;
+  DMA1_S5M0AR = p3;
+  DMA1_S5NDTR = len;
 
-  DMA_Cmd(DMA2_Stream3, ENABLE);
-  DMA_Cmd(DMA1_Stream4, ENABLE);
-  DMA_Cmd(DMA1_Stream5, ENABLE);
-  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, ENABLE);
-  SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Tx, ENABLE);
-  SPI_I2S_DMACmd(SPI3, SPI_I2S_DMAReq_Tx, ENABLE);
+  dma_enable_stream(DMA2, DMA_STREAM3);
+  dma_enable_stream(DMA1, DMA_STREAM4);
+  dma_enable_stream(DMA1, DMA_STREAM5);
+  spi_enable_tx_dma(SPI1);
+  spi_enable_tx_dma(SPI2);
+  spi_enable_tx_dma(SPI3);
 }
 
 
@@ -512,30 +549,30 @@ void
 latch_scanplanes(void)
 {
   delay(1);
-  GPIO_SetBits(GPIOA, GPIO_Pin_4);
-  GPIO_SetBits(GPIOC, GPIO_Pin_6);
-  GPIO_SetBits(GPIOC, GPIO_Pin_5);
+  gpio_set(GPIOA, GPIO4);
+  gpio_set(GPIOA, GPIO6);
+  gpio_set(GPIOA, GPIO5);
   delay(1);
-  GPIO_ResetBits(GPIOA, GPIO_Pin_4);
-  GPIO_ResetBits(GPIOC, GPIO_Pin_6);
-  GPIO_ResetBits(GPIOC, GPIO_Pin_5);
+  gpio_clear(GPIOA, GPIO4);
+  gpio_clear(GPIOA, GPIO6);
+  gpio_clear(GPIOA, GPIO5);
 }
 
 
 uint32_t
 is_tlc_dma_done(void)
 {
-  if (DMA_GetFlagStatus(DMA2_Stream3, DMA_FLAG_TCIF3) == RESET ||
-      DMA_GetFlagStatus(DMA1_Stream4, DMA_FLAG_TCIF4) == RESET ||
-      DMA_GetFlagStatus(DMA1_Stream5, DMA_FLAG_TCIF5) == RESET)
+  if (!dma_get_interrupt_flag(DMA2, DMA_STREAM3, DMA_TCIF) ||
+      !dma_get_interrupt_flag(DMA1, DMA_STREAM4, DMA_TCIF) ||
+      !dma_get_interrupt_flag(DMA1, DMA_STREAM5, DMA_TCIF))
     return 0;
-  if (!(SPI1->SR & SPI_I2S_FLAG_TXE) ||
-      !(SPI2->SR & SPI_I2S_FLAG_TXE) ||
-      !(SPI3->SR & SPI_I2S_FLAG_TXE))
+  if (!(SPI1_SR & SPI_SR_TXE) ||
+      !(SPI2_SR & SPI_SR_TXE) ||
+      !(SPI3_SR & SPI_SR_TXE))
     return 0;
-  if ((SPI1->SR & SPI_I2S_FLAG_BSY) ||
-      (SPI2->SR & SPI_I2S_FLAG_BSY) ||
-      (SPI3->SR & SPI_I2S_FLAG_BSY))
+  if ((SPI1_SR & SPI_SR_BSY) ||
+      (SPI2_SR & SPI_SR_BSY) ||
+      (SPI3_SR & SPI_SR_BSY))
     return 0;
   return 1;
 }

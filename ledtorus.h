@@ -78,9 +78,21 @@ typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
 
 
 /* misc.c */
-#ifdef ToDo_NOT_YET
-extern void delay(__IO uint32_t nCount);
-#endif
+extern void delay(uint32_t nCount);
+static inline uint32_t
+asm_rbit(uint32_t v)
+{
+  uint32_t r;
+  __asm("rbit %0, %1" : "=r" (r) : "r" (v));
+  return r;
+}
+static inline uint32_t
+asm_rev16(uint32_t v)
+{
+  uint32_t r;
+  __asm("rev16 %0, %1" : "=r" (r) : "r" (v));
+  return r;
+}
 
 /* led.c */
 extern void setup_led(void);
