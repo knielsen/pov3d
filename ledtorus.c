@@ -29,9 +29,9 @@ main(void)
   serial_puts("Setting up TLCs...\r\n");
   setup_spi();
   init_tlc();
-#ifdef ToDo_NOT_YET
   serial_puts("Configuring ADC...\r\n");
   config_adc();
+#ifdef ToDo_NOT_YET
   serial_puts("Starting timers...\r\n");
   setup_timers();
   serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
@@ -45,11 +45,14 @@ main(void)
 
   for (;;)
   {
+    float val;
+
     led_on();
-    serial_puts("^");
+    serial_puts("V: ");
+    val = voltage_read();
     busy_delay(500000);
     led_off();
-    serial_puts(".");
+    println_float(val, 1, 3);
     busy_delay(500000);
   }
 

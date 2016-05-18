@@ -1,5 +1,8 @@
 #include "ledtorus.h"
 
+#include <libopencm3/stm32/adc.h>
+
+
 /*
   Reading the supply voltage to detect when the LiPo cell is getting
   drained to a dangerously low level.
@@ -12,31 +15,22 @@
 void
 config_adc(void)
 {
-  GPIO_InitTypeDef GPIO_InitStructure;
-  ADC_InitTypeDef ADC_InitStructure;
-  ADC_CommonInitTypeDef ADC_CommonInitStructure;
+  rcc_periph_clock_enable(RCC_GPIOC);
+  rcc_periph_clock_enable(RCC_ADC1);
 
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
+  adc_power_off(ADC1);
 
-  ADC_Cmd(ADC1, DISABLE);
-  GPIO_StructInit(&GPIO_InitStructure);
-  ADC_StructInit(&ADC_InitStructure);
-  ADC_CommonStructInit(&ADC_CommonInitStructure);
+  gpio_mode_setup(GPIOC, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO0);
+  gpio_set_output_options(GPIOC, GPIO_OTYPE_PP, GPIO_OSPEED_25MHZ, GPIO0);
 
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(GPIOC, &GPIO_InitStructure);
+  adc_set_multi_mode(ADC_CCR_MULTI_INDEPENDENT|ADC_CCR_DMA_DISABLE|ADC_CCR_DELAY_5ADCCLK);
+  adc_set_clk_prescale(ADC_CCR_ADCPRE_BY2);
 
-  ADC_CommonInitStructure.ADC_Mode = ADC_Mode_Independent;
-  ADC_CommonInitStructure.ADC_Prescaler = ADC_Prescaler_Div2;
-  ADC_CommonInitStructure.ADC_DMAAccessMode = ADC_DMAAccessMode_Disabled;
-  ADC_CommonInitStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
-  ADC_CommonInit(&ADC_CommonInitStructure);
+  adc_set_resolution(ADC1, ADC_CR1_RES_12BIT);
+  adc_disable_scan_mode(ADC1);
+  adc_set_single_conversion_mode(ADC1);
 
+  /*
   ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
   ADC_InitStructure.ADC_ScanConvMode = DISABLE;
   ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
@@ -45,23 +39,27 @@ config_adc(void)
   ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
   ADC_InitStructure.ADC_NbrOfConversion = 1;
   ADC_Init(ADC1, &ADC_InitStructure);
+  */
 
-  ADC_TempSensorVrefintCmd(ENABLE);
-  ADC_Cmd(ADC1, ENABLE);
+  adc_enable_temperature_sensor();
+  adc_power_on(ADC1);
 }
 
 
 uint32_t
 adc_read(void)
 {
-  ADC_RegularChannelConfig(ADC1, ADC_Channel_10, 1, ADC_SampleTime_480Cycles);
-  ADC_SoftwareStartConv(ADC1);
+  uint8_t channel = 10;
+
+  adc_set_sample_time(ADC1, channel, ADC_SMPR_SMP_480CYC);
+  adc_set_regular_sequence(ADC1, 1, &channel);
+  adc_start_conversion_regular(ADC1);
 
   /* Wait for the ADC to complete. */
-  while (!ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC))
+  while (!adc_eoc(ADC1));
     ;
 
-  return ADC_GetConversionValue(ADC1);
+  return adc_read_regular(ADC1);
 }
 
 
@@ -69,20 +67,24 @@ float
 voltage_read_vrefint_adjust(void)
 {
   uint16_t adc_bat, adc_vrefint;
+  uint8_t channel_bat = 10;
+  uint8_t channel_vrefint = ADC_CHANNEL_VREF;
 
   /* Do an ADC measurement of the battery voltage. */
-  ADC_RegularChannelConfig(ADC1, ADC_Channel_10, 1, ADC_SampleTime_480Cycles);
-  ADC_SoftwareStartConv(ADC1);
-  while (!ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC))
+  adc_set_sample_time(ADC1, channel_bat, ADC_SMPR_SMP_480CYC);
+  adc_set_regular_sequence(ADC1, 1, &channel_bat);
+  adc_start_conversion_regular(ADC1);
+  while (!adc_eoc(ADC1));
     ;
-  adc_bat = ADC_GetConversionValue(ADC1);
+  adc_bat = adc_read_regular(ADC1);
 
   /* Do a corresponding measurement of the Vrefint internal 1.2V reference. */
-  ADC_RegularChannelConfig(ADC1, ADC_Channel_17, 1, ADC_SampleTime_480Cycles);
-  ADC_SoftwareStartConv(ADC1);
-  while (!ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC))
+  adc_set_sample_time(ADC1, channel_vrefint, ADC_SMPR_SMP_480CYC);
+  adc_set_regular_sequence(ADC1, 1, &channel_vrefint);
+  adc_start_conversion_regular(ADC1);
+  while (!adc_eoc(ADC1));
     ;
-  adc_vrefint = ADC_GetConversionValue(ADC1);
+  adc_vrefint = adc_read_regular(ADC1);
 
   /*
     The battery voltage is on a 32/10 voltage divider. The ADC reference
