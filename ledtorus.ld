@@ -5,29 +5,36 @@ MEMORY
 	RAM_MAIN (rwx) : ORIGIN = 0x20000000, LENGTH = 128K
 	RAM_CPU (rwx) : ORIGIN = 0x10000000, LENGTH = 64K
 }
-_estack = 0x20020000;
+_stack = 0x20020000;
 
 
 SECTIONS
 {
 	.text :
 	{
-		KEEP(*(.isr_vector))
+		KEEP(*(.vectors))
 		*(.text*)
 		*(.rodata*)
 		. = ALIGN(4);
 		_etext = .;
 	} > FLASH
 
-	_sidata = .;
+	/* Let's disable this stuff for now, just make it empty. */
+	__preinit_array_start = .;
+	__preinit_array_end = .;
+	__init_array_start = .;
+	__init_array_end = .;
+	__fini_array_start = .;
+	__fini_array_end = .;
 
-	.data : AT(_sidata)
+	.data :
 	{
-		_sdata = .;
+		_data = .;
 		*(.data*)
 		. = ALIGN(4);
 		_edata = .;
-	} > RAM_MAIN
+	} > RAM_MAIN AT > FLASH
+	_data_loadaddr = LOADADDR(.data);
 
 	.bss :
 	{
@@ -45,4 +52,4 @@ SECTIONS
 	} > RAM_MAIN
 }
 
-ENTRY(Reset_Handler)
+ENTRY(reset_handler)

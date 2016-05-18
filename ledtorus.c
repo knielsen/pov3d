@@ -3,15 +3,40 @@
 #include "ledtorus.h"
 
 
+static void
+busy_delay(uint32_t us)
+{
+  uint32_t i;
+  i = us*(MCU_HZ/(3*1000000));
+  do {
+    __asm __volatile ("");
+    --i;
+  } while (i != 0);
+}
+
+
 int
 main(void)
 {
+#ifdef ToDo_NOT_YET
   uint32_t anim_state;
   uint32_t old_frame_counter;
   uint32_t cur_anim;
   uint32_t anim_running;
+#endif
+
+  rcc_clock_setup_hse_3v3(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ]);
 
   setup_led();
+  for (;;)
+  {
+    led_on();
+    busy_delay(500000);
+    led_off();
+    busy_delay(500000);
+  }
+
+#ifdef ToDo_NOT_YET
   setup_serial();
 
   serial_puts("\r\n\r\nPOV3D Copyright 2015 Kristian Nielsen\r\n");
@@ -107,4 +132,5 @@ main(void)
         led_increase_intensity();
     }
   }
+#endif
 }

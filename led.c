@@ -4,27 +4,21 @@
 void
 setup_led(void)
 {
-  GPIO_InitTypeDef GPIO_InitStructure;
-
-  RCC_AHB1PeriphClockCmd(LED_PERIPH, ENABLE);
-  GPIO_InitStructure.GPIO_Pin = LED_PIN;
-  GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL;
-  GPIO_Init(LED_GPIO, &GPIO_InitStructure);
+  rcc_periph_clock_enable(LED_PERIPH);
+  gpio_mode_setup(LED_GPIO, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, LED_PIN);
+  gpio_set_output_options(LED_GPIO, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, LED_PIN);
 }
 
 
 void
 led_on(void)
 {
-  GPIO_SetBits(LED_GPIO, LED_PIN);
+  gpio_set(LED_GPIO, LED_PIN);
 }
 
 
 void
 led_off(void)
 {
-  GPIO_ResetBits(LED_GPIO, LED_PIN);
+  gpio_clear(LED_GPIO, LED_PIN);
 }

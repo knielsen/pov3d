@@ -1,6 +1,9 @@
 #include <math.h>
 #include <string.h>
-#include <stm32f4xx.h>
+
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
+
 
 #define PCB_POV3D
 //#define LILLE_VIDUNDER
@@ -9,27 +12,27 @@
 //#define DEBUG_SPEED_STABILITY 1
 
 #ifdef STM32F4_DISCOVERY
-#define LED_PERIPH RCC_AHB1Periph_GPIOD
+#define LED_PERIPH RCC_GPIOD
 #define LED_GPIO GPIOD
-#define LED_PIN GPIO_Pin_12
+#define LED_PIN GPIO12
 #endif
 
 #ifdef LILLE_VIDUNDER
-#define LED_PERIPH RCC_AHB1Periph_GPIOG
+#define LED_PERIPH RCC_GPIOG
 #define LED_GPIO GPIOG
-#define LED_PIN GPIO_Pin_15
+#define LED_PIN GPIO15
 #endif
 
 #ifdef PCB_POV3D
-#define LED_PERIPH RCC_AHB1Periph_GPIOC
+#define LED_PERIPH RCC_GPIOC
 #define LED_GPIO GPIOC
-#define LED_PIN GPIO_Pin_13
+#define LED_PIN GPIO13
 #endif
 
 #ifdef PCB_POV3D_2
-#define LED_PERIPH RCC_AHB1Periph_GPIOE
+#define LED_PERIPH RCC_GPIOE
 #define LED_GPIO GPIOE
-#define LED_PIN GPIO_Pin_2
+#define LED_PIN GPIO2
 #endif
 
 
@@ -75,7 +78,9 @@ typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
 
 
 /* misc.c */
+#ifdef ToDo_NOT_YET
 extern void delay(__IO uint32_t nCount);
+#endif
 
 /* led.c */
 extern void setup_led(void);
@@ -108,6 +113,7 @@ extern void setup_timers(void);
 extern uint32_t get_frame_counter(void);
 extern void tlc_show_time_stat(void);
 extern void new_intensity(uint8_t intensity);
+#ifdef ToDo_NOT_YET
 static inline uint32_t
 get_time(void)
 {
@@ -126,6 +132,7 @@ calc_time(uint32_t start)
   uint32_t stop = get_time();
   return calc_time_from_val(start, stop);
 }
+#endif
 
 
 /* adc.c */
@@ -186,7 +193,9 @@ extern int open_file(const char *name);
 /* hall.c */
 extern volatile uint32_t prev_hall;
 extern volatile uint32_t prev_hall_period;
+#ifdef ToDo_NOT_YET
 static inline uint32_t current_hall_timer(void) { return TIM2->CNT; }
+#endif
 extern void setup_hall(void);
 extern uint32_t check_hall(void);
 extern uint32_t last_hall_period(void);
