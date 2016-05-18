@@ -2,7 +2,9 @@ TARGET=ledtorus
 
 OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o \
   gfx.o font_tonc.o nrf24l01p.o sd_sdio.o hall.o \
-  stm324xg_eval_sdio_sd.o ev_fat.o
+  ev_fat.o \
+  #stm324xg_eval_sdio_sd.o
+  
 
 STM_DIR=/home/knielsen/devel/study/stm32f4/STM32F4xx_DSP_StdPeriph_Lib_V1.5.1
 STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src

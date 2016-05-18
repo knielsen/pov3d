@@ -1,6 +1,14 @@
 #include "ledtorus.h"
 
+#ifdef ToDo_SDIO
 #include "stm324xg_eval_sdio_sd.h"
+#else
+typedef uint32_t SD_Error;
+#define SD_OK 0
+#define SD_ERROR 1
+#define SD_TRANSFER_OK 0
+#define SD_TRANSFER_ERROR 1
+#endif
 
 #include "ev_fat.h"
 
@@ -150,6 +158,7 @@ static const char *
 sdio_error_name(SD_Error err)
 {
   const char *err_name;
+#ifdef ToDo_SDIO
   switch(err)
   {
   case SD_CMD_CRC_FAIL: err_name = "SD_CMD_CRC_FAIL"; break;
@@ -197,14 +206,18 @@ sdio_error_name(SD_Error err)
   default:
     err_name = "UNKNOWN";
   }
+#else
+  err_name = "SD_ERROR";
+#endif
   return err_name;
 }
-
 
 void
 SDIO_IRQHandler(void)
 {
+#ifdef ToDo_SDIO
   SD_ProcessIRQSrc();
+#endif
 }
 
 void
@@ -218,8 +231,10 @@ SD_SDIO_DMA_IRQHANDLER(void)
   */
   if(SD_SDIO_DMA_ISR & (SD_SDIO_DMA_FLAG_TCIF & 0x0F7D0F7D))
   {
+#ifdef ToDo_SDIO
     extern volatile uint32_t DMAEndOfTransfer;
     DMAEndOfTransfer = 0x01;
+#endif
     DMA_ClearFlag(SD_SDIO_DMA_STREAM, SD_SDIO_DMA_FLAG_TCIF|SD_SDIO_DMA_FLAG_FEIF);
   }
 }
@@ -261,7 +276,13 @@ handle_stream_bytes(void)
   {
     /* Need to read the requested sector. */
     led_on();
-    if ((err = SD_ReadBlock((uint8_t*)sd_buf, (uint64_t)sec*512, 512)) != SD_OK)
+    if ((err =
+#ifdef ToDo_SDIO
+         SD_ReadBlock((uint8_t*)sd_buf, (uint64_t)sec*512, 512)
+#else
+        SD_ERROR
+#endif
+         ) != SD_OK)
     {
       led_off();
       serial_puts("SD read error: ");
@@ -269,7 +290,13 @@ handle_stream_bytes(void)
       serial_puts("\r\n");
       return 1;
     }
-    if ((err = SD_WaitReadOperation()) != SD_OK)
+    if ((err =
+#ifdef ToDo_SDIO
+         SD_WaitReadOperation()
+#else
+         SD_ERROR
+#endif
+         ) != SD_OK)
     {
       led_off();
       serial_puts("SD wait single not ok: ");
@@ -277,7 +304,13 @@ handle_stream_bytes(void)
       serial_puts("\r\n");
       return 1;
     }
-    if (SD_GetStatus() != SD_TRANSFER_OK)
+    if (
+#ifdef ToDo_SDIO
+        SD_GetStatus()
+#else
+        SD_TRANSFER_ERROR
+#endif
+        != SD_TRANSFER_OK)
     {
       led_off();
       serial_puts("SD_GetStatus() not ok\r\n");
@@ -303,12 +336,20 @@ open_file(const char *name)
   int res;
 
   have_cached_sector = 0;                    /* In case of switch out card. */
+#ifdef ToDo_SDIO
   if (SD_Detect() != SD_PRESENT)
+#endif
   {
     serial_puts("No SD card present\r\n");
     return 1;
   }
-  if ((err = SD_Init()) != SD_OK)
+  if ((err =
+#ifdef ToDo_SDIO
+       SD_Init()
+#else
+       SD_ERROR
+#endif
+       ) != SD_OK)
   {
     serial_puts("SD_Init() failed: ");
     serial_puts(sdio_error_name(err));
@@ -376,10 +417,14 @@ read_range(uint32_t **dest)
   SD_Error err;
 
   led_on();
+#ifdef ToDo_SDIO
   if (count == 1)
     err = SD_ReadBlock((uint8_t *)*dest, (uint64_t)start*512, 512);
   else
     err = SD_ReadMultiBlocks((uint8_t *)*dest, (uint64_t)start*512, 512, count);
+#else
+  err = SD_ERROR;
+#endif
   if (err != SD_OK)
   {
     led_off();
@@ -388,7 +433,9 @@ read_range(uint32_t **dest)
     serial_puts("\r\n");
     return 1;
   }
+#ifdef ToDo_SDIO
   if ((err = SD_WaitReadOperation()) != SD_OK)
+#endif
   {
     led_off();
     serial_puts("SD wait not ok: ");
@@ -396,7 +443,9 @@ read_range(uint32_t **dest)
     serial_puts("\r\n");
     return 1;
   }
+#ifdef ToDo_SDIO
   if (SD_GetStatus() != SD_TRANSFER_OK)
+#endif
   {
     led_off();
     serial_puts("SD_GetStatus() not ok\r\n");
