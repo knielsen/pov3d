@@ -1,7 +1,7 @@
 TARGET=ledtorus
 
-OBJS = $(TARGET).o led.o \
-  #dbg.o spi.o timers.o adc.o tlc.o my_misc.o \
+OBJS = $(TARGET).o led.o dbg.o \
+  #spi.o timers.o adc.o tlc.o my_misc.o \
   #gfx.o font_tonc.o nrf24l01p.o sd_sdio.o hall.o \
   #ev_fat.o \
   #stm324xg_eval_sdio_sd.o

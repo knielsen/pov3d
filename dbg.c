@@ -4,47 +4,41 @@
 
 #include "ledtorus.h"
 
+#include <libopencm3/stm32/usart.h>
+
+
 void
 setup_serial(void)
 {
-  GPIO_InitTypeDef GPIO_InitStructure;
-  USART_InitTypeDef USART_InitStructure;
-
   /* enable peripheral clock for USART3 */
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
+  rcc_periph_clock_enable(RCC_USART3);
 
   /* GPIOB clock enable */
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
+  rcc_periph_clock_enable(RCC_GPIOB);
 
   /* GPIOB Configuration:  USART3 TX on PB10. */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP ;
-  GPIO_Init(GPIOB, &GPIO_InitStructure);
+  gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO10);
+  gpio_set_output_options(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO10);
 
   /* Connect USART3 pins to AF7 */
   // TX = PB10
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource10, GPIO_AF_USART3);
+  gpio_set_af(GPIOB, GPIO_AF7, GPIO10);
 
-  USART_InitStructure.USART_BaudRate = 115200;
-  USART_InitStructure.USART_WordLength = USART_WordLength_8b;
-  USART_InitStructure.USART_StopBits = USART_StopBits_1;
-  USART_InitStructure.USART_Parity = USART_Parity_No;
-  USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-  USART_InitStructure.USART_Mode = USART_Mode_Tx;
-  USART_Init(USART3, &USART_InitStructure);
+  usart_set_baudrate(USART3, 115200);
+  usart_set_databits(USART3, 8);
+  usart_set_stopbits(USART3, USART_STOPBITS_1);
+  usart_set_parity(USART3, USART_PARITY_NONE);
+  usart_set_flow_control(USART3, USART_FLOWCONTROL_NONE);
+  usart_set_mode(USART3, USART_MODE_TX);
 
-  USART_Cmd(USART3, ENABLE);
+  usart_enable(USART3);
 }
 
 
 void
 serial_putchar(uint32_t c)
 {
-  while(!(USART3->SR & USART_FLAG_TC));
-  USART_SendData(USART3, c);
+  usart_send_blocking(USART3, c);
 }
 
 

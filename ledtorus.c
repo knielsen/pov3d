@@ -28,19 +28,11 @@ main(void)
   rcc_clock_setup_hse_3v3(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ]);
 
   setup_led();
-  for (;;)
-  {
-    led_on();
-    busy_delay(500000);
-    led_off();
-    busy_delay(500000);
-  }
-
-#ifdef ToDo_NOT_YET
   setup_serial();
 
   serial_puts("\r\n\r\nPOV3D Copyright 2015 Kristian Nielsen\r\n");
   serial_puts("Setting up TLCs...\r\n");
+#ifdef ToDo_NOT_YET
   setup_spi();
   init_tlc();
   serial_puts("Configuring ADC...\r\n");
@@ -54,7 +46,19 @@ main(void)
   serial_puts("Setting up Hall sensor...\r\n");
   setup_hall();
   serial_puts("Setup done, starting loop...\r\n");
+#endif
 
+  for (;;)
+  {
+    led_on();
+    serial_puts("^");
+    busy_delay(500000);
+    led_off();
+    serial_puts(".");
+    busy_delay(500000);
+  }
+
+#ifdef ToDo_NOT_YET
   anim_state = 0;
   test_img1();
   old_frame_counter = 42;
