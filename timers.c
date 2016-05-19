@@ -10,6 +10,10 @@
 
 #include "ledtorus.h"
 
+#include <libopencm3/cm3/scb.h>
+#include <libopencm3/cm3/nvic.h>
+#include <libopencm3/stm32/exti.h>
+
 
 static volatile uint32_t scan_counter;
 
@@ -22,77 +26,65 @@ static volatile uint32_t scan_counter;
 static void
 setup_gsclks(void)
 {
-  GPIO_InitTypeDef GPIO_InitStructure;
-  TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
-  TIM_OCInitTypeDef TIM_OCInitStructure;
+  rcc_periph_clock_enable(RCC_TIM5);
+  rcc_periph_clock_enable(RCC_GPIOA);
 
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM5, ENABLE);
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO0|GPIO1|GPIO2);
+  gpio_set_output_options(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ,
+                          GPIO0|GPIO1|GPIO2);
+  gpio_set_af(GPIOA, GPIO_AF2, GPIO0|GPIO1|GPIO2);
 
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL ;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);
+  timer_set_period(TIM5, GSCLK_PERIOD-1);
+  timer_set_prescaler(TIM5, 0);
+  timer_set_clock_division(TIM5, 0);
+  timer_direction_up(TIM5);
 
-  GPIO_PinAFConfig(GPIOA, GPIO_PinSource0, GPIO_AF_TIM5);
-  GPIO_PinAFConfig(GPIOA, GPIO_PinSource1, GPIO_AF_TIM5);
-  GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_TIM5);
+  timer_disable_oc_output(TIM5, TIM_OC1);
+  timer_set_oc_mode(TIM5, TIM_OC1, TIM_OCM_PWM1);
+  timer_set_oc_value(TIM5, TIM_OC1, GSCLK_PERIOD/2);
+  timer_set_oc_polarity_high(TIM5, TIM_OC1);
+  timer_enable_oc_output(TIM5, TIM_OC1);
 
-  TIM_TimeBaseStructure.TIM_Period = GSCLK_PERIOD-1;
-  TIM_TimeBaseStructure.TIM_Prescaler = 0;
-  TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-  TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-  TIM_TimeBaseInit(TIM5, &TIM_TimeBaseStructure);
+  timer_disable_oc_output(TIM5, TIM_OC2);
+  timer_set_oc_mode(TIM5, TIM_OC2, TIM_OCM_PWM1);
+  timer_set_oc_value(TIM5, TIM_OC2, GSCLK_PERIOD/2);
+  timer_set_oc_polarity_high(TIM5, TIM_OC2);
+  timer_enable_oc_output(TIM5, TIM_OC2);
 
-  TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
-  TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-  TIM_OCInitStructure.TIM_Pulse = GSCLK_PERIOD/2;
-  TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
+  timer_disable_oc_output(TIM5, TIM_OC3);
+  timer_set_oc_mode(TIM5, TIM_OC3, TIM_OCM_PWM1);
+  timer_set_oc_value(TIM5, TIM_OC3, GSCLK_PERIOD/2);
+  timer_set_oc_polarity_high(TIM5, TIM_OC3);
+  timer_enable_oc_output(TIM5, TIM_OC3);
 
-  TIM_OC1Init(TIM5, &TIM_OCInitStructure);
-  TIM_OC2Init(TIM5, &TIM_OCInitStructure);
-  TIM_OC3Init(TIM5, &TIM_OCInitStructure);
-
-  TIM_OC1PreloadConfig(TIM5, TIM_OCPreload_Enable);
-  TIM_OC2PreloadConfig(TIM5, TIM_OCPreload_Enable);
-  TIM_OC3PreloadConfig(TIM5, TIM_OCPreload_Enable);
-  TIM_ARRPreloadConfig(TIM5, ENABLE);
-  TIM_Cmd(TIM5, ENABLE);
+  timer_enable_oc_preload(TIM5, TIM_OC1);
+  timer_enable_oc_preload(TIM5, TIM_OC2);
+  timer_enable_oc_preload(TIM5, TIM_OC3);
+  timer_enable_preload(TIM5);
+  timer_enable_counter(TIM5);
 }
 
 
 static void
 setup_scanplane_timer(void)
 {
-  TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
-  NVIC_InitTypeDef NVIC_InitStructure;
+  rcc_periph_clock_enable(RCC_TIM6);
 
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6, ENABLE);
+  timer_set_period(TIM6, NOMINAL_PERIOD);
+  timer_set_prescaler(TIM6, 0);
+  /* No clock division or direction can be configured for basic timer TIM6. */
 
-  TIM_TimeBaseStructure.TIM_Period = NOMINAL_PERIOD;
-  TIM_TimeBaseStructure.TIM_Prescaler = 0;
-  /* Remaining fields not used for TIM6/TIM7. */
-  TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-  TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-  TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
-  TIM_TimeBaseInit(TIM6, &TIM_TimeBaseStructure);
+  timer_disable_preload(TIM6);
+  timer_continuous_mode(TIM6);
+  timer_update_on_overflow(TIM6);
+  timer_enable_update_event(TIM6);
 
-  TIM_ARRPreloadConfig(TIM6, DISABLE);
-  TIM_SelectOnePulseMode(TIM6, TIM_OPMode_Repetitive);
-  TIM_UpdateRequestConfig(TIM6, TIM_UpdateSource_Regular);
-  TIM_UpdateDisableConfig(TIM6, DISABLE);
+  scb_set_priority_grouping(SCB_AIRCR_PRIGROUP_GROUP16_NOSUB);
+  nvic_set_priority(NVIC_TIM6_DAC_IRQ, 4<<4);
+  nvic_enable_irq(NVIC_TIM6_DAC_IRQ);
+  timer_enable_irq(TIM6, TIM_DIER_UIE);
 
-  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
-  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 4;
-  NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-  NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-  NVIC_InitStructure.NVIC_IRQChannel = TIM6_DAC_IRQn;
-  NVIC_Init(&NVIC_InitStructure);
-  TIM_ITConfig(TIM6, TIM_IT_Update, ENABLE);
-
-  TIM_Cmd(TIM6, ENABLE);
+  timer_enable_counter(TIM6);
 }
 
 
@@ -107,8 +99,8 @@ trigger_softint(void)
     the interrupt was never triggered. Probably resetting it here again is
     not necessary, but better safe than sorry.
   */
-  EXTI->PR = EXTI_Line0;
-  EXTI->SWIER = EXTI_Line0;
+  EXTI_PR = EXTI0;
+  EXTI_SWIER = EXTI0;
 }
 
 
@@ -120,9 +112,9 @@ static volatile uint32_t frame_counter = 0;
 static volatile uint32_t change_intensity_flag = 0;
 static uint32_t generate_scan_counter = 0;
 
-void TIM6_DAC_IRQHandler(void)
+void tim6_dac_isr(void)
 {
-  if (TIM6->SR & TIM_IT_Update)
+  if (TIM6_SR & TIM_SR_UIF)
   {
     uint32_t hall_timer, c, loc_prev_hall;
     uint32_t old_fraction, new_fraction;
@@ -294,10 +286,10 @@ void TIM6_DAC_IRQHandler(void)
     */
     old_fraction = fractional_period;
     new_fraction = old_fraction + period_frac;
-    TIM6->ARR = period_int + (new_fraction < old_fraction);
+    TIM6_ARR = period_int + (new_fraction < old_fraction);
     fractional_period = new_fraction;
     trigger_softint();
-    TIM6->SR = (uint16_t)~TIM_IT_Update;        /* Clear the interrupt */
+    TIM6_SR &= (uint16_t)~TIM_SR_UIF;           /* Clear the interrupt */
   }
 }
 
@@ -309,9 +301,9 @@ void TIM6_DAC_IRQHandler(void)
   operation.
 */
 void
-EXTI0_IRQHandler(void)
+exti0_isr(void)
 {
-  if (EXTI->PR & EXTI_Line0) {
+  if (EXTI_PR & EXTI0) {
     uint32_t c = generate_scan_counter;
     uint8_t idx = scanbuffer_idx;
     uint32_t intensity_flag;
@@ -353,7 +345,7 @@ EXTI0_IRQHandler(void)
     }
 
     /* Clear the pending interrupt event. */
-    EXTI->PR = EXTI_Line0;
+    EXTI_PR = EXTI0;
   }
 }
 
@@ -375,9 +367,10 @@ new_intensity(uint8_t intensity)
 static void
 setup_systick(void)
 {
-  SysTick->LOAD = 0xffffff;
-  SysTick->VAL = 0;
-  SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk;
+  systick_set_reload(0xffffff);
+  systick_clear();
+  systick_set_clocksource(STK_CSR_CLKSOURCE);
+  systick_counter_enable();
 }
 
 
@@ -388,27 +381,20 @@ setup_systick(void)
 static void
 setup_softint(void)
 {
-  union {
-    NVIC_InitTypeDef NVIC_InitStruct;
-  } u;
-
   /* Software interrupt on EXTI0 (no GPIO triggering). */
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+  rcc_periph_clock_enable(RCC_SYSCFG);
   /* Disable events on EXTI0. */
-  EXTI->EMR &= ~EXTI_Line0;
+  EXTI_EMR &= ~EXTI0;
   /* Disable GPIO triggers. */
-  EXTI->RTSR &= ~EXTI_Line0;
-  EXTI->FTSR &= ~EXTI_Line0;
+  EXTI_RTSR &= ~EXTI0;
+  EXTI_FTSR &= ~EXTI0;
   /* Enable interrupts on EXTI0. */
-  EXTI->IMR |= EXTI_Line0;
+  EXTI_IMR |= EXTI0;
 
   /* Clear any pending interrupt before enabling. */
-  EXTI->PR = EXTI_Line0;
-  u.NVIC_InitStruct.NVIC_IRQChannel = EXTI0_IRQn;
-  u.NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 15;
-  u.NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
-  u.NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
-  NVIC_Init(&u.NVIC_InitStruct);
+  EXTI_PR = EXTI0;
+  nvic_set_priority(NVIC_EXTI0_IRQ, 15<<4);
+  nvic_enable_irq(NVIC_EXTI0_IRQ);
 }
 
 

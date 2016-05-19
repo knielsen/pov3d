@@ -1,7 +1,6 @@
 #include "ledtorus.h"
 
 #include <libopencm3/cm3/nvic.h>
-#include <libopencm3/stm32/timer.h>
 
 
 /*
@@ -24,15 +23,16 @@ setup_hall(void)
   gpio_set_output_options(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO3);
 
   rcc_periph_clock_enable(RCC_TIM2);
-  gpio_set_af(GPIOA, GPIO_AF3, GPIO3);
+  gpio_set_af(GPIOA, GPIO_AF1, GPIO3);
 
   timer_set_period(TIM2, 0xffffffff);
   timer_set_prescaler(TIM2, 0);
   timer_set_clock_division(TIM2, 0);
   timer_direction_up(TIM2);
 
+  timer_ic_disable(TIM2, TIM_IC4);
   timer_ic_set_polarity(TIM2, TIM_IC4, TIM_IC_FALLING);
-  timer_ic_set_input(TIM2, TIM_IC4, TIM_IC_IN_TI1);
+  timer_ic_set_input(TIM2, TIM_IC4, TIM_IC_IN_TI2);
   timer_ic_set_prescaler(TIM2, TIM_IC4, TIM_IC_PSC_OFF);
   timer_ic_set_filter(TIM2, TIM_IC4, TIM_IC_CK_INT_N_8);
   timer_ic_enable(TIM2, TIM_IC4);

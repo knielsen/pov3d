@@ -31,9 +31,9 @@ main(void)
   init_tlc();
   serial_puts("Configuring ADC...\r\n");
   config_adc();
-#ifdef ToDo_NOT_YET
   serial_puts("Starting timers...\r\n");
   setup_timers();
+#ifdef ToDo_NOT_YET
   serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
   setup_nrf24l01p();
   serial_puts("Setting up SD card...\r\n");
@@ -53,6 +53,8 @@ main(void)
     busy_delay(500000);
     led_off();
     println_float(val, 1, 3);
+    serial_puts("Hall period: ");
+    println_uint32(last_hall_period());
     busy_delay(500000);
   }
 

@@ -1,8 +1,10 @@
 #include <math.h>
 #include <string.h>
 
+#include <libopencm3/cm3/systick.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/timer.h>
 
 
 #define PCB_POV3D
@@ -125,11 +127,10 @@ extern void setup_timers(void);
 extern uint32_t get_frame_counter(void);
 extern void tlc_show_time_stat(void);
 extern void new_intensity(uint8_t intensity);
-#ifdef ToDo_NOT_YET
 static inline uint32_t
 get_time(void)
 {
-  return SysTick->VAL;
+  return STK_CVR;
 }
 static inline uint32_t
 calc_time_from_val(uint32_t start, uint32_t stop)
@@ -144,7 +145,6 @@ calc_time(uint32_t start)
   uint32_t stop = get_time();
   return calc_time_from_val(start, stop);
 }
-#endif
 
 
 /* adc.c */
@@ -205,9 +205,7 @@ extern int open_file(const char *name);
 /* hall.c */
 extern volatile uint32_t prev_hall;
 extern volatile uint32_t prev_hall_period;
-#ifdef ToDo_NOT_YET
-static inline uint32_t current_hall_timer(void) { return TIM2->CNT; }
-#endif
+static inline uint32_t current_hall_timer(void) { return TIM2_CNT; }
 extern void setup_hall(void);
 extern uint32_t check_hall(void);
 extern uint32_t last_hall_period(void);
