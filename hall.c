@@ -1,5 +1,9 @@
 #include "ledtorus.h"
 
+#include <libopencm3/cm3/nvic.h>
+#include <libopencm3/stm32/timer.h>
+
+
 /*
   Hall sensor.
 
@@ -14,49 +18,31 @@
 void
 setup_hall(void)
 {
-  union {
-    GPIO_InitTypeDef  GPIO_InitStructure;
-    TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
-    TIM_ICInitTypeDef TIM_ICInitStructure;
-    NVIC_InitTypeDef NVIC_InitStructure;
-  } u;
-
   /* Hall sensor on PA3. */
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
-  u.GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
-  u.GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  u.GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  u.GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  u.GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(GPIOA, &u.GPIO_InitStructure);
+  rcc_periph_clock_enable(RCC_GPIOA);
+  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO3);
+  gpio_set_output_options(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO3);
 
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-  GPIO_PinAFConfig(GPIOA, GPIO_PinSource3, GPIO_AF_TIM2);
+  rcc_periph_clock_enable(RCC_TIM2);
+  gpio_set_af(GPIOA, GPIO_AF3, GPIO3);
 
-  u.TIM_TimeBaseStructure.TIM_Period = 0xffffffff;
-  u.TIM_TimeBaseStructure.TIM_Prescaler = 0;
-  u.TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-  u.TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-  TIM_TimeBaseInit(TIM2, &u.TIM_TimeBaseStructure);
+  timer_set_period(TIM2, 0xffffffff);
+  timer_set_prescaler(TIM2, 0);
+  timer_set_clock_division(TIM2, 0);
+  timer_direction_up(TIM2);
 
-  u.TIM_ICInitStructure.TIM_Channel = TIM_Channel_4;
-  u.TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Falling;
-  u.TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
-  u.TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
-  /* 0x3 means filter until input is stable for 8 timer clocks. */
-  u.TIM_ICInitStructure.TIM_ICFilter = 0x3;
-  TIM_ICInit(TIM2, &u.TIM_ICInitStructure);
-  TIM_CCxCmd(TIM2, TIM_Channel_4, TIM_CCx_Enable);
+  timer_ic_set_polarity(TIM2, TIM_IC4, TIM_IC_FALLING);
+  timer_ic_set_input(TIM2, TIM_IC4, TIM_IC_IN_TI1);
+  timer_ic_set_prescaler(TIM2, TIM_IC4, TIM_IC_PSC_OFF);
+  timer_ic_set_filter(TIM2, TIM_IC4, TIM_IC_CK_INT_N_8);
+  timer_ic_enable(TIM2, TIM_IC4);
 
-  TIM_Cmd(TIM2, ENABLE);
+  timer_enable_counter(TIM2);
 
-  u.NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 5;
-  u.NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-  u.NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-  u.NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;
-  NVIC_Init(&u.NVIC_InitStructure);
+  nvic_set_priority(NVIC_TIM2_IRQ, 5<<4);
+  nvic_enable_irq(NVIC_TIM2_IRQ);
 
-  TIM_ITConfig(TIM2, TIM_IT_CC4, ENABLE);
+  timer_enable_irq(TIM2, TIM_DIER_CC4IE);
 }
 
 
@@ -74,11 +60,11 @@ uint32_t prev_hall_period_ptr = 0;
 #endif
 
 void
-TIM2_IRQHandler(void)
+tim2_isr(void)
 {
   uint32_t val;
 
-  val = TIM2->CCR4;               /* Reading CCR4 also clears the interrupt */
+  val = TIM2_CCR4;                /* Reading CCR4 also clears the interrupt */
   prev_hall_period = val - prev_hall;
   prev_hall = val;
 #ifdef DEBUG_SPEED_STABILITY
@@ -92,7 +78,7 @@ uint32_t
 check_hall(void)
 {
   /* The Hall output is active low. */
-  if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_3) != Bit_RESET)
+  if (gpio_get(GPIOA, GPIO3))
       return 0;
     else
       return 1;

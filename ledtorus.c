@@ -38,9 +38,9 @@ main(void)
   setup_nrf24l01p();
   serial_puts("Setting up SD card...\r\n");
   setup_sd_sdio();
+#endif
   serial_puts("Setting up Hall sensor...\r\n");
   setup_hall();
-#endif
   serial_puts("Setup done, starting loop...\r\n");
 
   for (;;)
@@ -48,7 +48,7 @@ main(void)
     float val;
 
     led_on();
-    serial_puts("V: ");
+    serial_puts(check_hall() ? "H=1  V: " : "H=0  V: ");
     val = voltage_read();
     busy_delay(500000);
     led_off();
