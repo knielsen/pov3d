@@ -33,9 +33,9 @@ main(void)
   config_adc();
   serial_puts("Starting timers...\r\n");
   setup_timers();
-#ifdef ToDo_NOT_YET
   serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
   setup_nrf24l01p();
+#ifdef ToDo_NOT_YET
   serial_puts("Setting up SD card...\r\n");
   setup_sd_sdio();
 #endif
@@ -46,6 +46,7 @@ main(void)
   for (;;)
   {
     float val;
+    uint32_t key;
 
     led_on();
     serial_puts(check_hall() ? "H=1  V: " : "H=0  V: ");
@@ -56,6 +57,13 @@ main(void)
     serial_puts("Hall period: ");
     println_uint32(last_hall_period());
     busy_delay(500000);
+    if ((key = get_key_event()) != KEY_NOEVENT)
+    {
+      serial_puts("Key event: 0x");
+      print_uint32_hex(key);
+      serial_puts("  joy_l_vert=");
+      println_float(joy_l_vert(), 1, 3);
+    }
   }
 
 #ifdef ToDo_NOT_YET

@@ -95,6 +95,12 @@ asm_rev16(uint32_t v)
   __asm("rev16 %0, %1" : "=r" (r) : "r" (v));
   return r;
 }
+static inline void
+asm_dsb(void)
+{
+  __asm __volatile("dsb");
+}
+
 
 /* led.c */
 extern void setup_led(void);

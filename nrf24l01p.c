@@ -1,6 +1,12 @@
 #include "ledtorus.h"
 #include "nrf24l01p.h"
 
+#include <libopencm3/cm3/nvic.h>
+#include <libopencm3/cm3/scb.h>
+#include <libopencm3/stm32/exti.h>
+#include <libopencm3/stm32/usart.h>
+#include <libopencm3/stm32/dma.h>
+
 
 /* Communications protocol. */
 #define POV_CMD_DEBUG 254
@@ -81,28 +87,28 @@ static volatile uint32_t key_event_head = 0, key_event_tail = 0;
 static void
 nrf_irq_enable(void)
 {
-  EXTI->IMR |= EXTI_Line3;
+  EXTI_IMR |= EXTI3;
 }
 
 
 static void
 nrf_irq_disable(void)
 {
-  EXTI->IMR &= ~EXTI_Line3;
+  EXTI_IMR &= ~EXTI3;
 }
 
 
 static void
 nrf_irq_clear(void)
 {
-  EXTI->PR = EXTI_Line3;
+  EXTI_PR = EXTI3;
 }
 
 
 static uint32_t
 nrf_irq_pinstatus(void)
 {
-  return GPIOC->IDR & GPIO_Pin_3;
+  return GPIOC_IDR & GPIO3;
 }
 
 
@@ -119,170 +125,134 @@ nrf_irq_pinstatus(void)
 static void
 setup_nrf_spi(void)
 {
-  union {
-    GPIO_InitTypeDef GPIO_InitStructure;
-    USART_InitTypeDef USART_InitStructure;
-    USART_ClockInitTypeDef USART_ClockInitStruct;
-    DMA_InitTypeDef DMA_InitStructure;
-    EXTI_InitTypeDef EXTI_InitStruct;
-    NVIC_InitTypeDef NVIC_InitStruct;
-  } u;
+  uint32_t tmp;
 
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
+  rcc_periph_clock_enable(RCC_USART1);
+  rcc_periph_clock_enable(RCC_GPIOA);
+  rcc_periph_clock_enable(RCC_GPIOB);
+  rcc_periph_clock_enable(RCC_GPIOC);
 
-  USART_Cmd(USART1, DISABLE);
+  usart_disable(USART1);
 
   /*
     Clock on PA8.
     Polarity is idle low, active high.
     Phase is sample on rising, setup on falling edge.
   */
-  u.GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
-  u.GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  u.GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
-  u.GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  u.GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
-  GPIO_Init(GPIOA, &u.GPIO_InitStructure);
-  GPIO_PinAFConfig(GPIOA, GPIO_PinSource8, GPIO_AF_USART1);
+  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, GPIO8);
+  gpio_set_output_options(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_25MHZ, GPIO8);
+  gpio_set_af(GPIOA, GPIO_AF7, GPIO8);
 
   /* MOSI and MISO on PB6/PB7. */
-  u.GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6|GPIO_Pin_7;
-  u.GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  u.GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
-  u.GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  u.GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(GPIOB, &u.GPIO_InitStructure);
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource6, GPIO_AF_USART1);
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource7, GPIO_AF_USART1);
+  gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO6|GPIO7);
+  gpio_set_output_options(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_25MHZ, GPIO6|GPIO7);
+  gpio_set_af(GPIOB, GPIO_AF7, GPIO6|GPIO7);
 
   /*
     CS on PC1, CE on PC2.
     CS is high initially (active low).
     CE is low initially (active high).
   */
-  GPIO_SetBits(GPIOC, GPIO_Pin_1);
-  GPIO_ResetBits(GPIOC, GPIO_Pin_2);
-  u.GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1|GPIO_Pin_2;
-  u.GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  u.GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
-  u.GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  u.GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(GPIOC, &u.GPIO_InitStructure);
+  gpio_set(GPIOC, GPIO1);
+  gpio_clear(GPIOC, GPIO2);
+  gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO1|GPIO2);
+  gpio_set_output_options(GPIOC, GPIO_OTYPE_PP, GPIO_OSPEED_25MHZ, GPIO1|GPIO2);
 
-  u.USART_InitStructure.USART_BaudRate = 5250000;
-  u.USART_InitStructure.USART_WordLength = USART_WordLength_8b;
-  u.USART_InitStructure.USART_StopBits = USART_StopBits_1;
-  u.USART_InitStructure.USART_Parity = USART_Parity_No;
-  u.USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-  u.USART_InitStructure.USART_Mode = USART_Mode_Tx|USART_Mode_Rx;
-  USART_Init(USART1, &u.USART_InitStructure);
-  u.USART_ClockInitStruct.USART_Clock = USART_Clock_Enable;
-  u.USART_ClockInitStruct.USART_CPOL = USART_CPOL_Low;
-  u.USART_ClockInitStruct.USART_CPHA = USART_CPHA_1Edge;
-  u.USART_ClockInitStruct.USART_LastBit = USART_LastBit_Enable;
-  USART_ClockInit(USART1, &u.USART_ClockInitStruct);
+  usart_set_baudrate(USART1, 5250000);
+  usart_set_databits(USART1, 8);
+  usart_set_stopbits(USART1, USART_CR2_STOPBITS_1);
+  usart_set_parity(USART1, USART_PARITY_NONE);
+  usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
+  usart_set_mode(USART1, USART_MODE_TX_RX);
+  /* ToDo: Maybe do an API for USART SPI mode. */
+  tmp = USART1_CR2;
+  tmp &= ~(USART_CR2_CLKEN|USART_CR2_CPOL|USART_CR2_CPHA|USART_CR2_LBCL);
+  /* Zero values for CPOL/CPHA gives CPOL_log and CPHA_1Edge. */
+  tmp |= USART_CR2_CLKEN|USART_CR2_LBCL;
+  USART1_CR2 = tmp;
 
-  USART_Cmd(USART1, ENABLE);
+  usart_enable(USART1);
 
   /* Setup DMA. USART1 on DMA2 channel 4, streams 2 (Rx) and 7 (Tx). */
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA2, ENABLE);
-  DMA_DeInit(DMA2_Stream2);
-  DMA_DeInit(DMA2_Stream7);
+  rcc_periph_clock_enable(RCC_DMA2);
+  dma_stream_reset(DMA2, DMA_STREAM2);
+  dma_stream_reset(DMA2, DMA_STREAM7);
 
-  u.DMA_InitStructure.DMA_BufferSize = 1;
-  u.DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
-  u.DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_1QuarterFull;
-  u.DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-  u.DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-  u.DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-  u.DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-  u.DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-  u.DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-  u.DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-  u.DMA_InitStructure.DMA_Priority = DMA_Priority_Medium;
-  /* Configure USART1 TX DMA */
-  u.DMA_InitStructure.DMA_PeripheralBaseAddr =(uint32_t) (&(USART1->DR));
-  u.DMA_InitStructure.DMA_Channel = DMA_Channel_4;
-  u.DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral ;
-  u.DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA2_Stream7, &u.DMA_InitStructure);
-  /* Configure USART1 RX DMA */
-  u.DMA_InitStructure.DMA_Channel = DMA_Channel_4;
-  u.DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory ;
-  u.DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-  DMA_Init(DMA2_Stream2, &u.DMA_InitStructure);
+  dma_enable_direct_mode(DMA2, DMA_STREAM7);
+  dma_set_fifo_threshold(DMA2, DMA_STREAM7, DMA_SxFCR_FTH_1_4_FULL);
+  dma_set_memory_burst(DMA2, DMA_STREAM7, DMA_SxCR_MBURST_SINGLE);
+  dma_set_peripheral_burst(DMA2, DMA_STREAM7, DMA_SxCR_PBURST_SINGLE);
+  dma_set_memory_size(DMA2, DMA_STREAM7, DMA_SxCR_MSIZE_8BIT);
+  dma_set_peripheral_size(DMA2, DMA_STREAM7, DMA_SxCR_PSIZE_8BIT);
+  dma_enable_memory_increment_mode(DMA2, DMA_STREAM7);
+  dma_disable_peripheral_increment_mode(DMA2, DMA_STREAM7);
+  dma_set_priority(DMA2, DMA_STREAM7, DMA_SxCR_PL_MEDIUM);
+  dma_set_peripheral_address(DMA2, DMA_STREAM7, (uint32_t) (&(USART1_DR)));
+  dma_channel_select(DMA2, DMA_STREAM7, DMA_SxCR_CHSEL_4);
+  dma_set_transfer_mode(DMA2, DMA_STREAM7, DMA_SxCR_DIR_MEM_TO_PERIPHERAL);
+
+  dma_enable_direct_mode(DMA2, DMA_STREAM2);
+  dma_set_fifo_threshold(DMA2, DMA_STREAM2, DMA_SxFCR_FTH_1_4_FULL);
+  dma_set_memory_burst(DMA2, DMA_STREAM2, DMA_SxCR_MBURST_SINGLE);
+  dma_set_peripheral_burst(DMA2, DMA_STREAM2, DMA_SxCR_PBURST_SINGLE);
+  dma_set_memory_size(DMA2, DMA_STREAM2, DMA_SxCR_MSIZE_8BIT);
+  dma_set_peripheral_size(DMA2, DMA_STREAM2, DMA_SxCR_PSIZE_8BIT);
+  dma_enable_memory_increment_mode(DMA2, DMA_STREAM2);
+  dma_disable_peripheral_increment_mode(DMA2, DMA_STREAM2);
+  dma_set_priority(DMA2, DMA_STREAM2, DMA_SxCR_PL_MEDIUM);
+  dma_set_peripheral_address(DMA2, DMA_STREAM2, (uint32_t) (&(USART1_DR)));
+  dma_channel_select(DMA2, DMA_STREAM2, DMA_SxCR_CHSEL_4);
+  dma_set_transfer_mode(DMA2, DMA_STREAM2, DMA_SxCR_DIR_PERIPHERAL_TO_MEM);
 
   /* Configure a USART1 DMA Rx transfer complete interrupt. */
-  DMA_ITConfig(DMA2_Stream2, DMA_IT_TC, DISABLE);
-  u.NVIC_InitStruct.NVIC_IRQChannel = DMA2_Stream2_IRQn;
-  u.NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 10;
-  u.NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
-  u.NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
-  NVIC_Init(&u.NVIC_InitStruct);
-  DMA_ITConfig(DMA2_Stream2, DMA_IT_TC, ENABLE);
+  dma_disable_transfer_complete_interrupt(DMA2, DMA_STREAM2);
+  nvic_set_priority(NVIC_DMA2_STREAM2_IRQ, 10<<4);
+  nvic_enable_irq(NVIC_DMA2_STREAM2_IRQ);
+  dma_enable_transfer_complete_interrupt(DMA2, DMA_STREAM2);
 
   /* IRQ on PC3. */
-  u.GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
-  u.GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-  u.GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
-  u.GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  u.GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-  GPIO_Init(GPIOC, &u.GPIO_InitStructure);
+  gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO3);
+  gpio_set_output_options(GPIOC, GPIO_OTYPE_PP, GPIO_OSPEED_25MHZ, GPIO3);
 
+  /* We only want to configure the interrupt here, not yet enable it. */
+  rcc_periph_clock_enable(RCC_SYSCFG);
+  exti_disable_request(EXTI3);
   /* Take an interrupt on falling edge (IRQ is active low). */
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
-  SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOC, EXTI_PinSource3);
-  u.EXTI_InitStruct.EXTI_Line = EXTI_Line3;
-  u.EXTI_InitStruct.EXTI_LineCmd = ENABLE;
-  u.EXTI_InitStruct.EXTI_Mode = EXTI_Mode_Interrupt;
-  u.EXTI_InitStruct.EXTI_Trigger = EXTI_Trigger_Falling;
-  EXTI_Init(&u.EXTI_InitStruct);
-  /*
-    We only want to configure the interrupt here, not yet enable it. But the
-    ST libraries seem to not have a way to configure the interrupt without
-    also enabling it. So let's just configure it with the library routine
-    and immediately disable it.
-  */
-  nrf_irq_disable();
+  exti_select_source(EXTI3, GPIOC);
+  exti_set_trigger(EXTI3, EXTI_TRIGGER_FALLING);
 
   /* Clear any pending interrupt before enabling in NVIC. */
   nrf_irq_clear();
-  u.NVIC_InitStruct.NVIC_IRQChannel = EXTI3_IRQn;
-  u.NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 10;
-  u.NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
-  u.NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
-  NVIC_Init(&u.NVIC_InitStruct);
+  nvic_set_priority(NVIC_EXTI3_IRQ, 10<<4);
+  nvic_enable_irq(NVIC_EXTI3_IRQ);
 }
 
 
 static inline void
 csn_low(void)
 {
-  GPIO_ResetBits(GPIOC, GPIO_Pin_1);
+  gpio_clear(GPIOC, GPIO1);
 }
 
 
 static inline void
 csn_high(void)
 {
-  GPIO_SetBits(GPIOC, GPIO_Pin_1);
+  gpio_set(GPIOC, GPIO1);
 }
 
 
 static inline void
 ce_low(void)
 {
-  GPIO_ResetBits(GPIOC, GPIO_Pin_2);
+  gpio_clear(GPIOC, GPIO2);
 }
 
 
 static inline void
 ce_high(void)
 {
-  GPIO_SetBits(GPIOC, GPIO_Pin_2);
+  gpio_set(GPIOC, GPIO2);
 }
 
 
@@ -312,20 +282,20 @@ ssi_cmd_start(uint32_t len)
   /* Take CSN low to initiate transfer. */
   csn_low();
 
-  DMA2_Stream2->M0AR = (uint32_t)(&nrf_recv_buffer[0]);
-  DMA2_Stream2->NDTR = len;
-  DMA2_Stream7->M0AR = (uint32_t)(&nrf_send_buffer[0]);
-  DMA2_Stream7->NDTR = len;
+  DMA2_S2M0AR = &nrf_recv_buffer[0];
+  DMA2_S2NDTR = len;
+  DMA2_S7M0AR = &nrf_send_buffer[0];
+  DMA2_S7NDTR = len;
   /* Clear DMA transfer complete flags. */
-  DMA2->LIFCR = DMA_FLAG_TCIF2 & 0x0F7D0F7D;
-  DMA2->HIFCR = DMA_FLAG_TCIF7 & 0x0F7D0F7D;
+  DMA2_LIFCR = DMA_LISR_TCIF2;
+  DMA2_HIFCR = DMA_HISR_TCIF7;
   /* Clear the  USART TC (transfer complete) flag. */
-  USART1->SR &= ~USART_FLAG_TC;
+  USART1_SR &= ~USART_SR_TC;
   /* Enable the Rx and Tx DMA channels. */
-  DMA2_Stream2->CR |= DMA_SxCR_EN;
-  DMA2_Stream7->CR |= DMA_SxCR_EN;
+  DMA2_S2CR |= DMA_SxCR_EN;
+  DMA2_S7CR |= DMA_SxCR_EN;
   /* Enable the USART1 to generate Rx/Tx DMA requests. */
-  USART1->CR3 |= (USART_DMAReq_Tx|USART_DMAReq_Rx);
+  USART1_CR3 |= (USART_CR3_DMAT|USART_CR3_DMAR);
 }
 
 
@@ -336,9 +306,9 @@ ssi_cmd_transfer_done()
   csn_high();
 
   /* Disable DMA requests and channels. */
-  DMA2_Stream2->CR &= ~DMA_SxCR_EN;
-  DMA2_Stream7->CR &= ~DMA_SxCR_EN;
-  USART1->CR3 &= ~(USART_DMAReq_Tx|USART_DMAReq_Rx);
+  DMA2_S2CR &= ~DMA_SxCR_EN;
+  DMA2_S7CR &= ~DMA_SxCR_EN;
+  USART1_CR3 &= ~(USART_CR3_DMAT|USART_CR3_DMAR);
 }
 
 
@@ -346,9 +316,9 @@ ssi_cmd_transfer_done()
 static uint32_t nrf_async_receive_multi_cont();
 
 void
-EXTI3_IRQHandler(void)
+exti3_isr(void)
 {
-  if (EXTI->PR & EXTI_Line3) {
+  if (EXTI_PR & EXTI3) {
     /* Clear the pending interrupt event. */
     nrf_irq_clear();
 
@@ -365,9 +335,9 @@ EXTI3_IRQHandler(void)
   completed, indicating completion of the corresponding command/request.
 */
 void
-DMA2_Stream2_IRQHandler(void)
+dma2_stream2_isr(void)
 {
-  if (DMA2->LISR & 0x00200000)
+  if (DMA2_LISR & DMA_LISR_TCIF2)
   {
     /*
       Clear the interrupt request.
@@ -376,7 +346,7 @@ DMA2_Stream2_IRQHandler(void)
       that this second DMA can complete before we complete the interrupt
       handler, we will not lose the interrupt of the second DMA request.
     */
-    DMA2->LIFCR = 0x00200000;
+    DMA2_LIFCR = DMA_LISR_TCIF2;
     if (nrf_cmd_running)
     {
       ssi_cmd_transfer_done();
@@ -727,7 +697,11 @@ nrf_receive_cb(uint8_t *packet, void *dummy __attribute__((unused)))
     if (subcmd == POV_SUBCMD_RESET_TO_BOOTLOADER)
     {
       /* Reset to bootloader. */
-      NVIC_SystemReset();
+      asm_dsb();
+      scb_reset_system();
+      asm_dsb();
+      for (;;)
+        ;
       /* NotReached */
     }
   }
@@ -760,7 +734,6 @@ setup_nrf24l01p(void)
   /* nRF24L01+ datasheet says to wait 100msec for bootup. */
   delay(MCU_HZ/3/10);
   nrf_init_config(81, nRF_RF_PWR_0DBM);
-
   /* Start receiving packets! */
   nrf_async_receive_multi_start(nrf_receive_cb, NULL);
 }
