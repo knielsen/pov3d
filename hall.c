@@ -32,7 +32,8 @@ setup_hall(void)
 
   timer_ic_disable(TIM2, TIM_IC4);
   timer_ic_set_polarity(TIM2, TIM_IC4, TIM_IC_FALLING);
-  timer_ic_set_input(TIM2, TIM_IC4, TIM_IC_IN_TI2);
+  /* TIM_IC_IN_TI4 selects TIM2_CH4 as the input for capture-compare. */
+  timer_ic_set_input(TIM2, TIM_IC4, TIM_IC_IN_TI4);
   timer_ic_set_prescaler(TIM2, TIM_IC4, TIM_IC_PSC_OFF);
   timer_ic_set_filter(TIM2, TIM_IC4, TIM_IC_CK_INT_N_8);
   timer_ic_enable(TIM2, TIM_IC4);
