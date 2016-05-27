@@ -1232,21 +1232,17 @@ const struct ledtorus_anim anim_table[] = {
     "Fireworks animation",
     1000, NULL, in_fireworks, an_fireworks },
 
-#ifdef ToDo_SDIO
   { "Simplex2",
     "Second prototype Simplex Noise animation",
     750, "SIMPLEX2.P3D", in_sdcard, an_sdcard },
-#endif
 
   { "MigratingDots",
     "Migrating dots animation",
     750, NULL, in_migrating_dots, an_migrating_dots },
 
-#ifdef ToDo_SDIO
   { "Simplex1",
     "First prototype Simplex Noise animation",
     750, "SIMPLEX1.P3D", in_sdcard, an_sdcard },
-#endif
 
   { "PlaneTest",
     "Plane/polygon drawing test",

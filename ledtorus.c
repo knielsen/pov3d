@@ -28,10 +28,8 @@ main(void)
   setup_timers();
   serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
   setup_nrf24l01p();
-#ifdef ToDo_SDIO
   serial_puts("Setting up SD card...\r\n");
   setup_sd_sdio();
-#endif
   serial_puts("Setting up Hall sensor...\r\n");
   setup_hall();
   serial_puts("Setup done, starting loop...\r\n");

@@ -1,164 +1,118 @@
 #include "ledtorus.h"
 
-#ifdef ToDo_SDIO
-#include "stm324xg_eval_sdio_sd.h"
-#else
-typedef uint32_t SD_Error;
-#define SD_OK 0
-#define SD_ERROR 1
-#define SD_TRANSFER_OK 0
-#define SD_TRANSFER_ERROR 1
-#endif
+#include <libopencm3/cm3/scb.h>
+#include <libopencm3/cm3/nvic.h>
+#include <libopencm3/stm32/dma.h>
+#include <libopencm3/stm32/sdio.h>
 
+#include "sdcard.h"
 #include "ev_fat.h"
 
 
+/* We use SDIO on DMA2 Stream 6. */
+#define DMA_PERIPH DMA2
+#define DMA_STREAM_INSTANCE DMA_STREAM6
+#define DMA_ISR dma2_stream6_isr
+#define DMA_IRQ NVIC_DMA2_STREAM6_IRQ
+#define DMA_RCC_PERIPH RCC_DMA2
+
+/* SD card detect pin on PA15. */
+#define SD_DETECT_RCC_PERIPH RCC_GPIOA
+#define SD_DETECT_GPIO GPIOA
+#define SD_DETECT_PIN GPIO15
+
+
 void
-SD_LowLevel_Init(void)
+sdio_isr(void)
 {
-  GPIO_InitTypeDef  GPIO_InitStructure;
+  HAL_SD_IRQHandler();
+}
 
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
-  RCC_AHB1PeriphClockCmd(SD_DETECT_GPIO_CLK, ENABLE);
 
-  GPIO_PinAFConfig(GPIOC, GPIO_PinSource8, GPIO_AF_SDIO);
-  GPIO_PinAFConfig(GPIOC, GPIO_PinSource9, GPIO_AF_SDIO);
-  GPIO_PinAFConfig(GPIOC, GPIO_PinSource10, GPIO_AF_SDIO);
-  GPIO_PinAFConfig(GPIOC, GPIO_PinSource11, GPIO_AF_SDIO);
-  GPIO_PinAFConfig(GPIOC, GPIO_PinSource12, GPIO_AF_SDIO);
-  GPIO_PinAFConfig(GPIOD, GPIO_PinSource2, GPIO_AF_SDIO);
+void
+DMA_ISR(void)
+{
+  uint32_t direction;
 
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9|GPIO_Pin_10|GPIO_Pin_11;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-  GPIO_Init(GPIOC, &GPIO_InitStructure);
+  if (dma_get_interrupt_flag(DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_TCIF))
+  {
+    direction = DMA_SCR(DMA_PERIPH, DMA_STREAM_INSTANCE) & DMA_SxCR_DIR_MASK;
+    // ToDo: This is actually redundant, as the two callbacks do the same thing...
+    if (direction == DMA_SxCR_DIR_PERIPHERAL_TO_MEM)
+      SD_DMA_RxCplt();
+    else
+      SD_DMA_TxCplt();
+    dma_clear_interrupt_flags(DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_TCIF);
+  }
+}
 
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
-  GPIO_Init(GPIOD, &GPIO_InitStructure);
 
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(GPIOC, &GPIO_InitStructure);
+static void
+setup_sd_gpio_interrupts_dma(void)
+{
+  rcc_periph_clock_enable(SD_DETECT_RCC_PERIPH);
+  rcc_periph_clock_enable(RCC_GPIOC);
+  rcc_periph_clock_enable(RCC_GPIOD);
+  rcc_periph_clock_enable(RCC_SDIO);
+  rcc_periph_clock_enable(DMA_RCC_PERIPH);
 
-  GPIO_InitStructure.GPIO_Pin = SD_DETECT_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
   /*
     The SD card detect switch is open when no card is present, and connects to
     ground when card is inserted. So we need a pull-up on the pin.
   */
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-  GPIO_Init(SD_DETECT_GPIO_PORT, &GPIO_InitStructure);
+  gpio_mode_setup(SD_DETECT_GPIO, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, SD_DETECT_PIN);
+  gpio_set_output_options(SD_DETECT_GPIO, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, SD_DETECT_PIN);
 
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SDIO, ENABLE);
-  RCC_AHB1PeriphClockCmd(SD_SDIO_DMA_CLK, ENABLE);
+  /* SDIO D0-D3 on PC8-11. */
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO8|GPIO9|GPIO10|GPIO11);
+  gpio_set_output_options(GPIOC, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO8|GPIO9|GPIO10|GPIO11);
+  /* SDIO_CK on PC12. */
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO12);
+  gpio_set_output_options(GPIOC, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO12);
+  /* SDIO_CMD on PD2. */
+  gpio_mode_setup(GPIOD, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO2);
+  gpio_set_output_options(GPIOC, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO2);
+
+  gpio_set_af(GPIOC, GPIO_AF12, GPIO8|GPIO9|GPIO10|GPIO11|GPIO12);
+  gpio_set_af(GPIOD, GPIO_AF12, GPIO2);
+
+  SDIO_CLKCR = SDIO_CLKCR_HWFC_EN | SDIO_CLKCR_WIDBUS_1 | (0 << SDIO_CLKCR_CLKDIV_SHIFT);
+
+  nvic_set_priority(NVIC_SDIO_IRQ, 9<<4);
+  nvic_enable_irq(NVIC_SDIO_IRQ);
+
+  rcc_periph_clock_enable(DMA_RCC_PERIPH);
+  dma_stream_reset(DMA_PERIPH, DMA_STREAM_INSTANCE);
+  dma_enable_fifo_mode(DMA_PERIPH, DMA_STREAM_INSTANCE);
+  dma_set_fifo_threshold(DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_SxFCR_FTH_4_4_FULL);
+  dma_set_memory_burst(DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_SxCR_MBURST_INCR4);
+  dma_set_peripheral_burst(DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_SxCR_PBURST_INCR4);
+  dma_set_memory_size(DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_SxCR_MSIZE_32BIT);
+  dma_set_peripheral_size(DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_SxCR_PSIZE_32BIT);
+  dma_enable_memory_increment_mode(DMA_PERIPH, DMA_STREAM_INSTANCE);
+  dma_disable_peripheral_increment_mode(DMA_PERIPH, DMA_STREAM_INSTANCE);
+  dma_set_priority(DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_SxCR_PL_MEDIUM);
+  dma_set_peripheral_address(DMA_PERIPH, DMA_STREAM_INSTANCE, (uint32_t) (&(SDIO_FIFO)));
+  dma_channel_select(DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_SxCR_CHSEL_4);
+  dma_set_transfer_mode(DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_SxCR_DIR_PERIPHERAL_TO_MEM);
+  dma_set_peripheral_flow_control(DMA_PERIPH, DMA_STREAM_INSTANCE);
+
+  nvic_set_priority(DMA_IRQ, 10<<4);
+  nvic_enable_irq(DMA_IRQ);
 }
 
 
-void
-SD_LowLevel_DeInit(void)
+static uint32_t
+is_sdcard_present(void)
 {
-  GPIO_InitTypeDef  GPIO_InitStructure;
-
-  SDIO_ClockCmd(DISABLE);
-  SDIO_SetPowerState(SDIO_PowerState_OFF);
-  SDIO_DeInit();
-
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SDIO, DISABLE);
-
-  GPIO_PinAFConfig(GPIOC, GPIO_PinSource8, GPIO_AF_MCO);
-  GPIO_PinAFConfig(GPIOC, GPIO_PinSource9, GPIO_AF_MCO);
-  GPIO_PinAFConfig(GPIOC, GPIO_PinSource10, GPIO_AF_MCO);
-  GPIO_PinAFConfig(GPIOC, GPIO_PinSource11, GPIO_AF_MCO);
-  GPIO_PinAFConfig(GPIOC, GPIO_PinSource12, GPIO_AF_MCO);
-  GPIO_PinAFConfig(GPIOD, GPIO_PinSource2, GPIO_AF_MCO);
-
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9|GPIO_Pin_10|GPIO_Pin_11|GPIO_Pin_12;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(GPIOC, &GPIO_InitStructure);
-
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
-  GPIO_Init(GPIOD, &GPIO_InitStructure);
-}
-
-
-void
-SD_LowLevel_DMA_TxConfig(uint32_t *BufferSRC, uint32_t BufferSize)
-{
-  DMA_InitTypeDef SDDMA_InitStructure;
-
-  DMA_ClearFlag(SD_SDIO_DMA_STREAM, SD_SDIO_DMA_FLAG_FEIF |
-                SD_SDIO_DMA_FLAG_DMEIF | SD_SDIO_DMA_FLAG_TEIF |
-                SD_SDIO_DMA_FLAG_HTIF | SD_SDIO_DMA_FLAG_TCIF);
-
-  DMA_Cmd(SD_SDIO_DMA_STREAM, DISABLE);
-  DMA_DeInit(SD_SDIO_DMA_STREAM);
-
-  SDDMA_InitStructure.DMA_Channel = SD_SDIO_DMA_CHANNEL;
-  SDDMA_InitStructure.DMA_PeripheralBaseAddr = SDIO_FIFO_ADDRESS;
-  SDDMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)BufferSRC;
-  SDDMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
-  SDDMA_InitStructure.DMA_BufferSize = BufferSize;
-  SDDMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-  SDDMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-  SDDMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word;
-  SDDMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
-  SDDMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-  SDDMA_InitStructure.DMA_Priority = DMA_Priority_Medium;
-  SDDMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
-  SDDMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-  SDDMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC4;
-  SDDMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_INC4;
-  DMA_Init(SD_SDIO_DMA_STREAM, &SDDMA_InitStructure);
-  DMA_ITConfig(SD_SDIO_DMA_STREAM, DMA_IT_TC, ENABLE);
-  DMA_FlowControllerConfig(SD_SDIO_DMA_STREAM, DMA_FlowCtrl_Peripheral);
-
-  DMA_Cmd(SD_SDIO_DMA_STREAM, ENABLE);
-}
-
-void
-SD_LowLevel_DMA_RxConfig(uint32_t *BufferDST, uint32_t BufferSize)
-{
-  DMA_InitTypeDef SDDMA_InitStructure;
-
-  DMA_ClearFlag(SD_SDIO_DMA_STREAM, SD_SDIO_DMA_FLAG_FEIF |
-                SD_SDIO_DMA_FLAG_DMEIF | SD_SDIO_DMA_FLAG_TEIF |
-                SD_SDIO_DMA_FLAG_HTIF | SD_SDIO_DMA_FLAG_TCIF);
-
-  DMA_Cmd(SD_SDIO_DMA_STREAM, DISABLE);
-  DMA_DeInit(SD_SDIO_DMA_STREAM);
-
-  SDDMA_InitStructure.DMA_Channel = SD_SDIO_DMA_CHANNEL;
-  SDDMA_InitStructure.DMA_PeripheralBaseAddr = SDIO_FIFO_ADDRESS;
-  SDDMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)BufferDST;
-  SDDMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
-  SDDMA_InitStructure.DMA_BufferSize = BufferSize;
-  SDDMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-  SDDMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-  SDDMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word;
-  SDDMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
-  SDDMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-  SDDMA_InitStructure.DMA_Priority = DMA_Priority_Medium;
-  SDDMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
-  SDDMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-  SDDMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC4;
-  SDDMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_INC4;
-  DMA_Init(SD_SDIO_DMA_STREAM, &SDDMA_InitStructure);
-  DMA_ITConfig(SD_SDIO_DMA_STREAM, DMA_IT_TC, ENABLE);
-  DMA_FlowControllerConfig(SD_SDIO_DMA_STREAM, DMA_FlowCtrl_Peripheral);
-
-  DMA_Cmd(SD_SDIO_DMA_STREAM, ENABLE);
+  return !gpio_get(SD_DETECT_GPIO, SD_DETECT_PIN);
 }
 
 
 static const char *
-sdio_error_name(SD_Error err)
+sdio_error_name(HAL_SD_ErrorTypedef err)
 {
   const char *err_name;
-#ifdef ToDo_SDIO
   switch(err)
   {
   case SD_CMD_CRC_FAIL: err_name = "SD_CMD_CRC_FAIL"; break;
@@ -206,52 +160,7 @@ sdio_error_name(SD_Error err)
   default:
     err_name = "UNKNOWN";
   }
-#else
-  err_name = "SD_ERROR";
-#endif
   return err_name;
-}
-
-void
-SDIO_IRQHandler(void)
-{
-#ifdef ToDo_SDIO
-  SD_ProcessIRQSrc();
-#endif
-}
-
-void
-SD_SDIO_DMA_IRQHANDLER(void)
-{
-  /*
-    There is a bug in the ST code library for SD/SDIO. It tests the wrong
-    flag if DMA channel 6 is used (DMA2->LISR instead of DMA2->HISR).
-    We work around it by inlining the (corrected) code here, rather than
-    calling into SD_ProcessDMAIRQ().
-  */
-  if(SD_SDIO_DMA_ISR & (SD_SDIO_DMA_FLAG_TCIF & 0x0F7D0F7D))
-  {
-#ifdef ToDo_SDIO
-    extern volatile uint32_t DMAEndOfTransfer;
-    DMAEndOfTransfer = 0x01;
-#endif
-    DMA_ClearFlag(SD_SDIO_DMA_STREAM, SD_SDIO_DMA_FLAG_TCIF|SD_SDIO_DMA_FLAG_FEIF);
-  }
-}
-
-
-static void NVIC_Configuration(void)
-{
-  NVIC_InitTypeDef NVIC_InitStructure;
-
-  NVIC_InitStructure.NVIC_IRQChannel = SDIO_IRQn;
-  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 9;
-  NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-  NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-  NVIC_Init(&NVIC_InitStructure);
-  NVIC_InitStructure.NVIC_IRQChannel = SD_SDIO_DMA_IRQn;
-  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 10;
-  NVIC_Init(&NVIC_InitStructure);
 }
 
 
@@ -265,24 +174,21 @@ static uint32_t cached_sector = 0;
 static uint8_t have_cached_sector = 0;
 
 
+static SD_HandleTypeDef my_hsd;
+static HAL_SD_CardInfoTypedef my_cardinfo;
+
 static int
 handle_stream_bytes(void)
 {
   uint32_t sec = sd_status.st_stream_bytes.sec;
   uint32_t i, offset, len;
-  SD_Error err;
+  HAL_SD_ErrorTypedef err;
 
   if (!have_cached_sector || cached_sector != sec)
   {
     /* Need to read the requested sector. */
     led_on();
-    if ((err =
-#ifdef ToDo_SDIO
-         SD_ReadBlock((uint8_t*)sd_buf, (uint64_t)sec*512, 512)
-#else
-        SD_ERROR
-#endif
-         ) != SD_OK)
+    if ((err = HAL_SD_ReadBlocks_DMA(&my_hsd, sd_buf, (uint64_t)sec*512, 512, 1)) != SD_OK)
     {
       led_off();
       serial_puts("SD read error: ");
@@ -290,13 +196,7 @@ handle_stream_bytes(void)
       serial_puts("\r\n");
       return 1;
     }
-    if ((err =
-#ifdef ToDo_SDIO
-         SD_WaitReadOperation()
-#else
-         SD_ERROR
-#endif
-         ) != SD_OK)
+    if ((err = HAL_SD_CheckReadOperation(&my_hsd, 10000000)) != SD_OK)
     {
       led_off();
       serial_puts("SD wait single not ok: ");
@@ -304,16 +204,10 @@ handle_stream_bytes(void)
       serial_puts("\r\n");
       return 1;
     }
-    if (
-#ifdef ToDo_SDIO
-        SD_GetStatus()
-#else
-        SD_TRANSFER_ERROR
-#endif
-        != SD_TRANSFER_OK)
+    if (HAL_SD_GetStatus(&my_hsd) != SD_TRANSFER_OK)
     {
       led_off();
-      serial_puts("SD_GetStatus() not ok\r\n");
+      serial_puts("HAL_SD_GetStatus() not ok\r\n");
       return 1;
     }
     led_off();
@@ -332,26 +226,28 @@ handle_stream_bytes(void)
 int
 open_file(const char *name)
 {
-  SD_Error err;
+  HAL_SD_ErrorTypedef err;
   int res;
 
   have_cached_sector = 0;                    /* In case of switch out card. */
-#ifdef ToDo_SDIO
-  if (SD_Detect() != SD_PRESENT)
-#endif
+  if (!is_sdcard_present())
   {
     serial_puts("No SD card present\r\n");
     return 1;
   }
-  if ((err =
-#ifdef ToDo_SDIO
-       SD_Init()
-#else
-       SD_ERROR
-#endif
-       ) != SD_OK)
+  err = HAL_SD_Init(&my_hsd, &my_cardinfo,
+                    DMA_PERIPH, DMA_STREAM_INSTANCE, DMA_STREAM_INSTANCE);
+  if (err != SD_OK)
   {
-    serial_puts("SD_Init() failed: ");
+    serial_puts("HAL_SD_Init() failed: ");
+    serial_puts(sdio_error_name(err));
+    serial_puts("\r\n");
+    return 1;
+  }
+  err = HAL_SD_WideBusOperation_Config(&my_hsd, SDIO_CLKCR_WIDBUS_4);
+  if(err != SD_OK)
+  {
+    serial_puts("HAL_SD_WideBusOperation_Config() failed: ");
     serial_puts(sdio_error_name(err));
     serial_puts("\r\n");
     return 1;
@@ -414,17 +310,10 @@ read_range(uint32_t **dest)
 {
   uint32_t start = range_start_sec;
   uint32_t count = range_end_sec - start + 1;
-  SD_Error err;
+  HAL_SD_ErrorTypedef err;
 
   led_on();
-#ifdef ToDo_SDIO
-  if (count == 1)
-    err = SD_ReadBlock((uint8_t *)*dest, (uint64_t)start*512, 512);
-  else
-    err = SD_ReadMultiBlocks((uint8_t *)*dest, (uint64_t)start*512, 512, count);
-#else
-  err = SD_ERROR;
-#endif
+  err = HAL_SD_ReadBlocks_DMA(&my_hsd, *dest, (uint64_t)start*512, 512, count);
   if (err != SD_OK)
   {
     led_off();
@@ -433,9 +322,7 @@ read_range(uint32_t **dest)
     serial_puts("\r\n");
     return 1;
   }
-#ifdef ToDo_SDIO
-  if ((err = SD_WaitReadOperation()) != SD_OK)
-#endif
+  if ((err = HAL_SD_CheckReadOperation(&my_hsd, 10000000)) != SD_OK)
   {
     led_off();
     serial_puts("SD wait not ok: ");
@@ -443,12 +330,10 @@ read_range(uint32_t **dest)
     serial_puts("\r\n");
     return 1;
   }
-#ifdef ToDo_SDIO
-  if (SD_GetStatus() != SD_TRANSFER_OK)
-#endif
+  if (HAL_SD_GetStatus(&my_hsd) != SD_TRANSFER_OK)
   {
     led_off();
-    serial_puts("SD_GetStatus() not ok\r\n");
+    serial_puts("HAL_SD_GetStatus() not ok\r\n");
     return 1;
   }
   led_off();
@@ -513,5 +398,5 @@ read_sectors(uint32_t *buf, uint32_t count)
 void
 setup_sd_sdio(void)
 {
-  NVIC_Configuration();
+  setup_sd_gpio_interrupts_dma();
 }

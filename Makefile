@@ -2,8 +2,8 @@ TARGET=ledtorus
 
 OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o \
   gfx.o font_tonc.o nrf24l01p.o hall.o \
-  ev_fat.o
-  #sd_sdio.o
+  ev_fat.o sd_sdio.o sdcard.o \
+  sdio.o
 
 
 OPENCM3_DIR=/kvm/src/libopencm3
@@ -36,6 +36,8 @@ $(TARGET).elf: $(OBJS) $(STM_OBJS) $(STARTUP_OBJ) $(LINKSCRIPT)
 	$(LD) $(ARCH_FLAGS) -T $(LINKSCRIPT) -o $@ $(STARTUP_OBJ) $(OBJS) $(STM_OBJS) $(LDFLAGS)
 
 $(TARGET).o: $(TARGET).c ledtorus.h
+sd_sdio.o: sdcard.h ev_fat.h
+sdcard.o: sdcard.h
 
 $(STARTUP_OBJ): $(STARTUP_SRC)
 	$(CC) $(CFLAGS) -c $< -o $@
