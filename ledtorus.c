@@ -3,22 +3,15 @@
 #include "ledtorus.h"
 
 
-static void
-busy_delay(uint32_t us)
-{
-  delay(us*(MCU_HZ/(3*1000000)));
-}
-
+#define SERIAL_DBG
 
 int
 main(void)
 {
-#ifdef ToDo_NOT_YET
   uint32_t anim_state;
   uint32_t old_frame_counter;
   uint32_t cur_anim;
   uint32_t anim_running;
-#endif
 
   rcc_clock_setup_hse_3v3(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ]);
 
@@ -35,7 +28,7 @@ main(void)
   setup_timers();
   serial_puts("Initialising nRF24L01+ wireless communications...\r\n");
   setup_nrf24l01p();
-#ifdef ToDo_NOT_YET
+#ifdef ToDo_SDIO
   serial_puts("Setting up SD card...\r\n");
   setup_sd_sdio();
 #endif
@@ -43,30 +36,6 @@ main(void)
   setup_hall();
   serial_puts("Setup done, starting loop...\r\n");
 
-  for (;;)
-  {
-    float val;
-    uint32_t key;
-
-    led_on();
-    serial_puts(check_hall() ? "H=1  V: " : "H=0  V: ");
-    val = voltage_read();
-    busy_delay(500000);
-    led_off();
-    println_float(val, 1, 3);
-    serial_puts("Hall period: ");
-    println_uint32(last_hall_period());
-    busy_delay(500000);
-    if ((key = get_key_event()) != KEY_NOEVENT)
-    {
-      serial_puts("Key event: 0x");
-      print_uint32_hex(key);
-      serial_puts("  joy_l_vert=");
-      println_float(joy_l_vert(), 1, 3);
-    }
-  }
-
-#ifdef ToDo_NOT_YET
   anim_state = 0;
   test_img1();
   old_frame_counter = 42;
@@ -144,5 +113,4 @@ main(void)
         led_increase_intensity();
     }
   }
-#endif
 }

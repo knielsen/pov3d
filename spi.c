@@ -67,7 +67,7 @@ setup_tlc_spi_dma()
   gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO5|GPIO6);
   gpio_set_output_options(GPIOC, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO5|GPIO6);
   /* Latch is active high; initialise it low. */
-  gpio_clear(GPIOA, GPIO5|GPIO6);
+  gpio_clear(GPIOC, GPIO5|GPIO6);
 
   /* SPI1 is on alternate function 5. */
   gpio_set_af(GPIOA, GPIO_AF5, GPIO5);
@@ -550,12 +550,12 @@ latch_scanplanes(void)
 {
   delay(1);
   gpio_set(GPIOA, GPIO4);
-  gpio_set(GPIOA, GPIO6);
-  gpio_set(GPIOA, GPIO5);
+  gpio_set(GPIOC, GPIO6);
+  gpio_set(GPIOC, GPIO5);
   delay(1);
   gpio_clear(GPIOA, GPIO4);
-  gpio_clear(GPIOA, GPIO6);
-  gpio_clear(GPIOA, GPIO5);
+  gpio_clear(GPIOC, GPIO6);
+  gpio_clear(GPIOC, GPIO5);
 }
 
 
