@@ -1247,6 +1247,10 @@ const struct ledtorus_anim anim_table[] = {
   { "PlaneTest",
     "Plane/polygon drawing test",
     512, NULL, NULL, an_planetest },
+
+  { "RubberDuck",
+    "A swimming yellow rubber duck",
+    1500, "RUB_DUCK.P3D", in_sdcard, an_sdcard },
 /*
   { "StabilityTest",
     "Test image to help debug image stability",
