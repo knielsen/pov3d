@@ -1,4 +1,4 @@
-/* POV3D. */
+/* LED-torus. */
 
 #include "ledtorus.h"
 
@@ -14,7 +14,7 @@ main(void)
   setup_led();
   setup_serial();
 
-  serial_puts("\r\n\r\nPOV3D Copyright 2015,2016 Kristian Nielsen\r\n");
+  serial_puts("\r\n\r\nLED-torus Copyright 2015-2017 Kristian Nielsen\r\n");
   serial_puts("Setting up TLCs...\r\n");
   init_tlc();
   setup_spi();

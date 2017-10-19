@@ -546,7 +546,7 @@ setup_tlc5955(uint32_t tlc_idx, SPI_TypeDef *spi_dev,
   /*
     We need to be a bit careful about strict aliasing with our buffers.
     The buffers are uint32_t[] to be correctly aligned for 32-bit DMA. While
-    our polling SPI operations work on then as uint16_t*.
+    our polling SPI operations work on them as uint16_t*.
     But since we fill and compare them as uint8_t, it should be ok.
   */
   fill_tlc5955_control_latch((uint8_t *)databuf, tlc_idx, led_intensity, 4);
