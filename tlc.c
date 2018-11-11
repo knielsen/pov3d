@@ -4,7 +4,7 @@
   Define this for motors that are designed for counter-clockwise spin
   direction.
 */
-//#define COUNTER_CLOCKWISE
+#define COUNTER_CLOCKWISE
 
 #define SPIS 6
 

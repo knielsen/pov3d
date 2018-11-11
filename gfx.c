@@ -371,18 +371,18 @@ an_supply_voltage(frame_t *f, uint32_t c, union anim_data *data __attribute__((u
   sat = 0.9+0.0999f*sinf((float)(c % 73)*(F_PI*2.0f/73.0f));
   val = 0.85f+0.1499f*sinf((float)(c % 145)*(F_PI*2.0f/145.0f));
   textcol = hsv2rgb_f(hue, sat, val);
-  g_text(f, buf, 5, a, textcol.r, textcol.g, textcol.b, stretch);
+  g_text(f, buf, 12, a, textcol.r, textcol.g, textcol.b, stretch);
 
   if (hall_period == 0 || (c % 25) == 0)
     hall_period = last_hall_period();
   p = my_str_mk(buf, "FPS: ");
   float_to_str(p, 84000000.0f/(float)hall_period, 2, 2);
-  g_text(f, buf, 3, 0, 0, 0, 100, 1.0f);
+  g_text(f, buf, 9, 0, 0, 0, 100, 1.0f);
 
   p = my_str_mk(buf, "IN: ");
   p = float_to_str(p, (float)led_intensity/127.0f*(100.0f-10.0f)+10.0f, 3, 1);
   my_str_mk(p, " %");
-  g_text(f, buf, 2, (LEDS_TANG-1) - (c/2)%LEDS_TANG, 100, 0, 0, 1.5f);
+  g_text(f, buf, 5, (LEDS_TANG-1) - (c/2)%LEDS_TANG, 100, 0, 0, 1.5f);
 
   return 0;
 }
@@ -1125,7 +1125,7 @@ an_test_img3(frame_t *f, uint32_t c __attribute__((unused)),
 {
   const float val = 1.0f;
   const float sat0 = 1.0f;
-  const float hue_fact0 = 0.3f;
+  const float hue_fact0 = 0.05f;
   const float sat_fact0 = 0.3f;
   uint32_t x, y, a;
   float hue0;
@@ -1133,8 +1133,11 @@ an_test_img3(frame_t *f, uint32_t c __attribute__((unused)),
   float hue_fact, sat_fact;
   float nx, ny, ang, ang2;
   struct colour3 rgb;
+  uint32_t hall_status;
 
-  hue0 = (float)(c % 256)*(1.0f/256.0f);
+  hall_status = check_hall();
+
+  hue0 = 0.5f*hall_status + (float)(c % 256)*(0.1f*1.0f/256.0f);
   ang = (float)(c % 73)*(1.0f/73.0f*2.0f*F_PI);
   nx = cosf(ang);
   ny = sinf(ang);
@@ -1256,19 +1259,19 @@ an_planetest(frame_t *f, uint32_t frame,
 
 
 const struct ledtorus_anim anim_table[] = {
+  { "Status",
+    "Couple of scroll-texts displaying status",
+    750, NULL, NULL, an_supply_voltage },
+
+/*
   { "TestImg3",
     "Test-image with _all_ LEDs constant on at maximum",
     750, NULL, NULL, an_test_img3 },
 
-#ifdef NOT_YET_CHECKED_FOR_LEDTORUS2
-  { "Status",
-    "Couple of scroll-texts displaying status",
-    750, NULL, NULL, an_supply_voltage },
-#endif
-
   { "Ghost",
     "Animated cosine-wave",
     750, NULL, NULL, an_ghost },
+*/
 
 #ifdef NOT_YET_CHECKED_FOR_LEDTORUS2
   { "Fireworks",
