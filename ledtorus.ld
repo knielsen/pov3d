@@ -1,7 +1,8 @@
 MEMORY
 {
 	/* The first 16 kByte flash are reserved for bootloader. */
-	FLASH (rx) : ORIGIN = 0x8004000, LENGTH = 1008K
+	/* FLASH_ADDR comes from Makefile, to enable/disable bootloader */
+	FLASH (rx) : ORIGIN = FLASH_ADDR, LENGTH = 1008K
 	RAM_MAIN (rwx) : ORIGIN = 0x20000000, LENGTH = 128K
 	RAM_CPU (rwx) : ORIGIN = 0x10000000, LENGTH = 64K
 }

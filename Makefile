@@ -1,7 +1,14 @@
 STM_DIR=/kvm/src/STM32F4xx_DSP_StdPeriph_Lib_V1.6.1
 STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
 
+WITH_WIRELESS_BOOTLOADER := 0
 TARGET=ledtorus
+
+ifeq ($(WITH_WIRELESS_BOOTLOADER), 1)
+	FLASH_ADDR := 0x8004000
+else
+	FLASH_ADDR := 0x8000000
+endif
 
 OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o \
   gfx.o font_tonc.o nrf24l01p.o sd_sdio.o hall.o \
@@ -48,7 +55,7 @@ LINKSCRIPT=$(TARGET).ld
 ARCH_FLAGS=-mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -ffunction-sections -fdata-sections -ffast-math
 
 CFLAGS=-ggdb -O2 -std=c99 -Wall -Wextra -Warray-bounds -Wno-unused-parameter $(ARCH_FLAGS) $(INC) -DSTM32F40XX -DUSE_STDPERIPH_DRIVER
-LDFLAGS=-Wl,--gc-sections -lm
+LDFLAGS=-Wl,--gc-sections -Wl,--defsym,FLASH_ADDR=$(FLASH_ADDR) -lm
 
 
 .PHONY: all flash clean tty cat
@@ -82,7 +89,7 @@ stm324xg_eval_sdio_sd.c: $(ST_SDIO_SD_C)
 	$(OBJCOPY) -O binary $< $@
 
 flash: $(TARGET).bin
-	st-flash write $(TARGET).bin 0x8004000
+	st-flash write $(TARGET).bin $(FLASH_ADDR)
 
 clean:
 	rm -f $(OBJS) $(STM_OBJS) $(TARGET).elf $(TARGET).bin $(STARTUP_OBJ)
