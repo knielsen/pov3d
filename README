@@ -1,0 +1,60 @@
+This is the code for the LED-Torus (https://knielsen-hq.org/ledtorus.html).
+
+It measures (using the hall-sensor) the speed of rotation of the PCB
+and programs the TLC5955 LED drivers to output the 3D image at the
+right timing. It also computes each frame of the animations displayed.
+Optionally animations are read from an SD-card, if present. Also
+optionally, input for interactive use is read from an nRF24L01+
+wireless module, if present.
+
+Following are some simple instructions for using the code with the
+LED-Torus. In case of any questions please feel free to contact me at
+Kristian Nielsen <knielsen@knielsen-hq.org>
+
+
+Programming the LED-Torus.
+
+The code runs on the STM32F405 MCU on the LED-Torus PCB. It can be
+programmed using an ST-Link (or compatible) programmer. Connect the
+3V3, SWC, GND, SWD (and optionally RST) pins on the 6-pin programming
+header to the corresponding signals on the ST-Link.
+
+The firmware should be written to the address 0x08000000 (when not
+using an external bootloader which should be the normal use-case). The
+included Makefile has a `make flash` target that does this using the
+`st-flash` program, if available, but any flashing tool should work.
+
+In the directory firmware/ are found a precompiled binary firmware
+(.elf and .bin formats both supplied). These are tested to work and
+can be used as an easy starting point before trying to compile own
+firmware versions.
+
+If all goes well, the LED-torus should start up and start flashing the
+LEDs. The code outputs some debug info on the serial Tx output pin on
+the debug header on the side of the PCB (115200 baud, one stop bit, no
+parity).
+
+
+Compiling the code
+
+The code needs the ST Standard Peripheral Library for STM32F4x MCUs.
+Version 1.6.1 is used, probably a later (or earlier) version will work
+fine with few or no changes. This can be obtained from ST's website
+(www.st.com).
+
+The included Makefile can be used to compile the code with a standard
+arm-none-eabi-gcc GCC compiler on posix-like systems. The path to the
+ST library must be set to the correct location in the Makefile, and
+then a simple `make` should compile the code.
+
+
+Licence:
+
+The LED-Torus code is copyright Kristian Nielsen. It is released under
+the GPL, version 2 or later. Note that the LED-Torus code references
+external libraries (eg. from ST Microsystems) which have different
+licences.
+
+If you would like to use the LED-Torus code under a different licence
+than GPL then just contact me (knielsen@knielsen-hq.org), I'll
+probably be willig to release under a different license as needed.
