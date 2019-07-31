@@ -1,11 +1,12 @@
+STM_DIR=/kvm/src/STM32F4xx_DSP_StdPeriph_Lib_V1.6.1
+STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
+
 TARGET=ledtorus
 
 OBJS = $(TARGET).o led.o dbg.o spi.o timers.o adc.o tlc.o my_misc.o \
   gfx.o font_tonc.o nrf24l01p.o sd_sdio.o hall.o \
   stm324xg_eval_sdio_sd.o ev_fat.o
 
-STM_DIR=/home/knielsen/devel/study/stm32f4/STM32F4xx_DSP_StdPeriph_Lib_V1.5.1
-STM_SRC = $(STM_DIR)/Libraries/STM32F4xx_StdPeriph_Driver/src
 vpath %.c $(STM_SRC)
 STM_OBJS = system_stm32f4xx.o
 STM_OBJS  += stm32f4xx_rcc.o
@@ -68,7 +69,8 @@ $(STARTUP_OBJ): $(STARTUP_SRC)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 nrf24l01p.o: nrf24l01p.h
-stm324xg_eval_sdio_sd.c: stm324xg_eval_sdio_sd.h
+stm324xg_eval_sdio_sd.o: stm324xg_eval_sdio_sd.h
+sd_sdio.o: stm324xg_eval_sdio_sd.h
 
 stm324xg_eval_sdio_sd.h: $(ST_SDIO_SD_H)
 	ln -s $< $@
