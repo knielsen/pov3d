@@ -4,7 +4,7 @@
   Define this for motors that are designed for counter-clockwise spin
   direction.
 */
-//#define COUNTER_CLOCKWISE
+#define COUNTER_CLOCKWISE
 
 /*
   Gamma correction, mapping frame buffer intensity 0..255 into
