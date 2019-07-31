@@ -247,8 +247,8 @@ ev_file_get_first_block(const char *filename, struct ev_file_status *st)
           break;
         if (di >= 11 || c == '.')
           return EV_FILE_ST_ENAME;
-      if (c >= 'a' && c <= 'z')
-        c = c - ('a' - 'A');
+        if (c >= 'a' && c <= 'z')
+          c = c - ('a' - 'A');
         st->locate_dir.name[di++] = c;
       }
     }
