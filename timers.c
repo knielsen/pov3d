@@ -15,7 +15,7 @@ static volatile uint32_t scan_counter;
 
 #define NOMINAL_PERIOD ((MCU_HZ/2 + (LEDS_TANG*FRAMERATE/2)) / (LEDS_TANG*FRAMERATE))
 /* Set limits so that if Hall is completely off we can ignore it. */
-#define MIN_PERIOD (NOMINAL_PERIOD*8/10)
+#define MIN_PERIOD (NOMINAL_PERIOD*5/10)
 #define MAX_PERIOD 64000
 
 
