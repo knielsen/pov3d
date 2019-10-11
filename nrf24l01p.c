@@ -759,7 +759,7 @@ setup_nrf24l01p(void)
   setup_nrf_spi();
   /* nRF24L01+ datasheet says to wait 100msec for bootup. */
   delay(MCU_HZ/3/10);
-  nrf_init_config(81, nRF_RF_PWR_0DBM);
+  nrf_init_config(NRF_CHANNEL, nRF_RF_PWR_0DBM);
 
   /* Start receiving packets! */
   nrf_async_receive_multi_start(nrf_receive_cb, NULL);

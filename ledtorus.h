@@ -54,6 +54,14 @@
 #define LEDS_TANG 205
 #define FRAMERATE 25
 
+/*
+  Radio channel to use for nRF24L01+. Must match peer side.
+  Range is 0-125 for 2400-2525 MHz.
+*/
+#ifndef NRF_CHANNEL
+#define NRF_CHANNEL 81
+#endif
+
 
 #define FRAMEBUF_SIZE (LEDS_Y*LEDS_X*LEDS_TANG*3)
 #define DMA_FRAMEBUF_SIZE ((FRAMEBUF_SIZE+511)/512*128)
