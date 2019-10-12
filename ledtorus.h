@@ -184,6 +184,18 @@ extern float joy_l_vert(void);
 static inline uint32_t key_cross_state(void) {
   return key_state[2] & 0x40;
 }
+static inline uint32_t key_l1_state(void) {
+  return key_state[2] & 0x04;
+}
+static inline uint32_t key_l2_state(void) {
+  return key_state[2] & 0x01;
+}
+static inline uint32_t key_r1_state(void) {
+  return key_state[2] & 0x08;
+}
+static inline uint32_t key_r2_state(void) {
+  return key_state[2] & 0x02;
+}
 
 
 /* sd_sdio.c */

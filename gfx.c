@@ -48,6 +48,9 @@ static inline struct hsv3 mk_hsv3_f(float h, float s, float v)
   statically-allocated memory area can be shared among all animations.
 */
 union anim_data {
+  struct st_supply_voltage {
+    uint32_t offset;
+  } supply_voltage;
   struct st_fireworks {
     uint32_t num_phase1;
     uint32_t num_phase2;
@@ -343,8 +346,34 @@ my_str_mk(char *dst, const char *src)
   return dst;
 }
 
+static uint32_t
+in_supply_voltage(const struct ledtorus_anim *self, union anim_data *data)
+{
+  struct st_supply_voltage *s = &data->supply_voltage;
+  s->offset = 0;
+  return 0;
+}
+
+static void
+ut_supply_voltage_increment(struct st_supply_voltage *s, uint32_t incr)
+{
+  if (s->offset >= LEDS_TANG - incr)
+    s->offset = s->offset + incr - LEDS_TANG;
+  else
+    s->offset = s->offset + incr;
+}
+
+static void
+ut_supply_voltage_decrement(struct st_supply_voltage *s, uint32_t decr)
+{
+  if (s->offset < decr)
+    s->offset = s->offset + LEDS_TANG - decr;
+  else
+    s->offset = s->offset - decr;
+}
+
 uint32_t
-an_supply_voltage(frame_t *f, uint32_t c, union anim_data *data __attribute__((unused)))
+an_supply_voltage(frame_t *f, uint32_t c, union anim_data *data)
 {
   char buf[50];
   static float voltage = 0.0f;
@@ -354,6 +383,7 @@ an_supply_voltage(frame_t *f, uint32_t c, union anim_data *data __attribute__((u
   float hue, sat, val;
   uint32_t a, c2;
   struct colour3 textcol;
+  struct st_supply_voltage *s = &data->supply_voltage;
 
   cls(f);
   if (voltage == 0.0f || (c%64) == 0)
@@ -377,12 +407,21 @@ an_supply_voltage(frame_t *f, uint32_t c, union anim_data *data __attribute__((u
     hall_period = last_hall_period();
   p = my_str_mk(buf, "FPS: ");
   float_to_str(p, 84000000.0f/(float)hall_period, 2, 2);
-  g_text(f, buf, 3, 0, 0, 0, 100, 1.0f);
+  g_text(f, buf, 3, s->offset, 0, 0, 100, 1.0f);
 
   p = my_str_mk(buf, "IN: ");
   p = float_to_str(p, (float)led_intensity/127.0f*(100.0f-10.0f)+10.0f, 3, 1);
   my_str_mk(p, " %");
   g_text(f, buf, 2, (LEDS_TANG-1) - (c/2)%LEDS_TANG, 100, 0, 0, 1.5f);
+
+  if (key_l1_state())
+    ut_supply_voltage_decrement(s, 1);
+  if (key_r1_state())
+    ut_supply_voltage_increment(s, 1);
+  if (key_l2_state())
+    ut_supply_voltage_decrement(s, 5);
+  if (key_r2_state())
+    ut_supply_voltage_increment(s, 5);
 
   return 0;
 }
@@ -1222,7 +1261,7 @@ an_planetest(frame_t *f, uint32_t frame,
 const struct ledtorus_anim anim_table[] = {
   { "Status",
     "Couple of scroll-texts displaying status",
-    750, NULL, NULL, an_supply_voltage },
+    750, NULL, in_supply_voltage, an_supply_voltage },
 
   { "Ghost",
     "Animated cosine-wave",
